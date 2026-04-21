@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href = "../css/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hearing Test AHSLAB</title>
+</head>
+<body >
+    <div class="eyebrow">
+        <h6>University of Washington</h6>
+        <div class="subtitle">
+            <h1>AHSLAB <strong>Hearing Test</strong></h1>
+            <img src="../images/logo.png">
+        </div>
+    </div>
+    <hr />
+    <h1 class="title">Can you hear the sound?</h1>
+    <div class="startButtonBox">
+        <button id="enableMessage"> Start</button>
+    </div>
+   
+    <div class="visual">
+        <h1 class="numbers" style="visibility:hidden">Ready: </h1>
+        <h1 id="soundSignal" style="visibility: hidden" >SOUND IS PLAYING</h1>
+    </div>
+    
+    
+    <div id="yesOrNoSection">
+        <button class="test-button" id="yes" style="visibility:hidden"><strong>Yes </strong>I hear the sound</button>
+        <button class="test-button" id ="no" style="visibility:hidden"><strong>No </strong>I don't hear the sound</button>
+    </div>
+    
+    <script src = "../js/playAudio.js"></script>
+</body>
+</html>
+

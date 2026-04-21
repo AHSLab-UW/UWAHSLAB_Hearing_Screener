@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href = "../css/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hearing Test AHSLAB</title>
+
+</head>
+<body>
+    <div class="eyebrow">
+        <h6>University of Washington</h6>
+        <div class="subtitle">
+            <h1>AHSLAB <strong>Hearing Test</strong></h1>
+            <img src="../images/logo.png">
+        </div>
+    </div>
+    <hr />
+
+    <h2> Please answer the following questions</h2>
+    
+    <label for="age">What is your age?</label>
+    <div class="age-input-container">
+        <input type="number" id="age" name="age" min="1" max="120" inputmode="numeric">
+        <div class="stepper">
+            <button class="arrow" id="stepUp">▲</button>
+            <button class="arrow" id="stepDown">▼</button>   
+        </div>  
+    </div>
+
+    <label> What is your sex?</label>
+    <div class="sex-container">
+        <label class="sex-button" id="femaleButton">
+            <input type="radio" name="userSex" value="female"> 
+            <span class="radio-face"><span class="radio-circle"></span>Female</span>
+        </label>
+        <label class="sex-button" id="maleButton">
+            <input type="radio" name="userSex" value="male"> 
+            <span class="radio-face"><span class="radio-circle"></span> Male</span>
+        </label>
+    </div>
+    
+    </div>
+    <button id="nextBttn"> Next </button>
+    <script src = "../js/surveyPage.js"></script>
+</body>
+</html>

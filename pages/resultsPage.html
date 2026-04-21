@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href = "../css/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body style="overflow-y:scroll">
+    <div class="eyebrow">
+        <h6>University of Washington</h6>
+        <div class="subtitle">
+            <h1>AHSLAB <strong>Hearing Test</strong></h1>
+            <img src="../images/logo.png">
+        </div>
+    </div>
+    <hr />
+    <h2 class="hnumLabel">Your <strong style="font-weight:800">Hearing Number</strong> is </h2>
+    <h2 class="result both" id="bothThreshold">[]</h2>
+    <h2 class="result single" id="leftThreshold">Left Ear: [] </h2>
+    <h2 class="result single" id="rightThreshold">Right Ear:[]</h2>
+    <div class="gap"></div>
+    <table id="resultsTable">
+        <thead>
+            <tr>
+                <th>Frequency (Hz)</th>
+                <th class="both" id="bothHeader">Hearing Threshold (dB HL)</th>
+                <th class="single" id="rightHeader">Right Threshold</th>
+                <th class="single" id="leftHeader">Left Threshold</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>500</td>
+                <td class="both" id="val0">--</td>
+                <td class="single" id="valL0">--</td>
+                <td class="single" id="valR0">--</td>
+            </tr>
+            <tr>
+                <td>1000</td>
+                <td class="both" id="val1">--</td>
+                <td class="single" id="valL1">--</td>
+                <td class="single" id="valR1">--</td>
+            </tr>
+            <tr>
+                <td>2000</td>
+                <td class="both" id="val2">--</td>
+                <td class="single" id="valL2">--</td>
+                <td class="single" id="valR2">--</td>
+            </tr>
+            <tr>
+                <td>4000</td>
+                <td class="both" id="val3">--</td>
+                <td class="single" id="valL3">--</td>
+                <td class="single" id="valR3">--</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <button id="restartBtn"> Clear Results & Start New Test</button>
+    <h6 id="dbHLCitation">Information about interpreting your Hearing Number can be found here:
+        <a href = "Hearing Number – What is the Hearing Number™?">What is a Hearing Number?</a> </h6>
+    <script src = "../js/results.js"></script>
+</body>
+</html>

@@ -18,7 +18,7 @@ const state = {
     freqIndex:0,
     frequencies: [1000, 2000, 4000, 500],
     currentEar: "left", //-1 for left, 1 for right, 0 for both
-    currentDBHL: 30,
+    currentDBHL: 50,
     increment:10,
     prevResponse: true,
     isFirstAttempt: true,
@@ -158,7 +158,7 @@ function saveThresholdAndAdvance () {
     state.results[storeWhich].push(state.currentDBHL);
     state.freqIndex++;
 
-    state.currentDBHL = 30;
+    state.currentDBHL = 50;
     state.isFirstAttempt = true;
 
     if (state.freqIndex < state.frequencies.length) {

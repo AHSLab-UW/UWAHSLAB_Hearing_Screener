@@ -110,7 +110,7 @@ function promptUser(event) {
     const userSaidYes = (event.target.id === "yes");
     disableYesOrNo();
     let earName = state.testMode === "both" ? "both" : state.currentEar;
-
+    console.log(state.currentDBHL);
     const resultEntry = {
         ear: earName,               // saves "left", "right", or "both"
         frequency: state.frequencies[state.freqIndex],
@@ -156,6 +156,7 @@ function saveThresholdAndAdvance () {
         storeWhich = state.currentEar;
     }
     state.results[storeWhich].push(state.currentDBHL);
+    
     state.freqIndex++;
 
     state.currentDBHL = 50;

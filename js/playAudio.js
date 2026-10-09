@@ -52,7 +52,7 @@ enable.addEventListener("click", async ()=>{
 const yesOrNo = document.querySelectorAll(".test-button");
 
 yesOrNo.forEach(button => {
-    button.addEventListener("click",promptUser);
+    button.addEventListener("click", promptUser);
 });
 
 disableYesOrNo();
@@ -107,7 +107,7 @@ function playTestTone(frequency, dbHL, whichEar, needVisual) {
 }
 
 function promptUser(event) {
-    const userSaidYes = (event.target.id === "yes");
+    const userSaidYes = (event.currentTarget.id === "yes");
     disableYesOrNo();
     let earName = state.testMode === "both" ? "both" : state.currentEar;
     console.log(state.currentDBHL);
@@ -115,7 +115,7 @@ function promptUser(event) {
         ear: earName,               // saves "left", "right", or "both"
         frequency: state.frequencies[state.freqIndex],
         levelHL: state.currentDBHL, 
-        response: event.target.id    // saves "yes" or "no"
+        response: userSaidYes ? "yes" : "no"
     };
     if(state.isFirstAttempt){
         state.prevResponse = true;

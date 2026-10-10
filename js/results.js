@@ -64,12 +64,12 @@ function getAllTrials(testmode) {
 function ambientNoiseCSV() {
     const storedAverage = sessionStorage.getItem("ambientNoiseTestAverage");
     const noise = storedAverage ? JSON.parse(storedAverage) : null;
-    let csv = "--- ESTIMATED AMBIENT NOISE DURING HEARING TEST ---\n";
+    let csv = "--- ESTIMATED AMBIENT NOISE DURING HEARING SCREENING ---\n";
     csv += "Measurement basis,Assumed 62.5 dBA voice reference; not calibrated SPL\n";
     if (!noise || noise.sampleCount === 0) {
-        return csv + "Monitoring result,Not available; no usable monitoring samples during the test\n\n";
+        return csv + "Monitoring result,Not available; no usable monitoring samples during the screening\n\n";
     }
-    csv += `Test duration (s),${noise.testDurationSeconds.toFixed(2)}\n`;
+    csv += `Screening duration (s),${noise.testDurationSeconds.toFixed(2)}\n`;
     csv += `Sampled audio duration (s),${noise.sampledSeconds.toFixed(2)}\n`;
     csv += `Monitoring coverage (%),${(100 * noise.sampledSeconds / noise.testDurationSeconds).toFixed(1)}\n`;
     csv += `Usable sample count,${noise.sampleCount}\n`;
@@ -92,8 +92,8 @@ function generateCSV() {
     const device = sessionStorage.getItem("hearingDevice") || "Not Provided";
     const confidence = sessionStorage.getItem("confidenceLevel") || "Not Provided";
 
-    let csvContent = `Test Date and Start Time:,${startTime}\n`;
-    csvContent += `Test End Time:,${now.toLocaleTimeString()}\n`;
+    let csvContent = `Screening Date and Start Time:,${startTime}\n`;
+    csvContent += `Screening End Time:,${now.toLocaleTimeString()}\n`;
     csvContent += `Age,${age}\n`;
     csvContent += `Sex,${sex}\n`;
     csvContent += `Subjective Difficulty,${difficulty}\n`;

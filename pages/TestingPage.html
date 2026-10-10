@@ -4,13 +4,13 @@
     <link rel="stylesheet" href = "../css/style.css">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hearing Test AHSLAB</title>
+    <title>Hearing Screener AHSLAB</title>
 </head>
-<body style="overflow-y:scroll">
+<body class="screening-page" style="overflow-y:auto">
     <div class="eyebrow">
         <h6>University of Washington</h6>
         <div class="subtitle">
-            <h1>AHSLAB <strong>Hearing Test</strong></h1>
+            <h1>AHSLAB <strong>Hearing Screener</strong></h1>
             <img src="../images/logo.png">
         </div>
     </div>
@@ -40,14 +40,14 @@
             <label><input type="checkbox" id="ambientToggle"> Enable microphone monitoring</label>
             <p>This is a rough estimate, not a calibrated sound level measurement or an OSHA compliance check.
                 Your normal speaking voice is assumed to be 62.5 dBA (within 60-65 dBA).
-                Keep the microphone in the same position after setting the reference, and use headphones during the hearing test.</p>
-            <p>Before starting the hearing test, read aloud at normal conversational volume for 8 seconds:
-                "I am checking the sound around me so that I can take my hearing test in a quiet place."
+                Keep the microphone in the same position after setting the reference, and use headphones during the hearing screening.</p>
+            <p>Before starting the hearing screener, read aloud at normal conversational volume for 8 seconds:
+                "I am checking the sound around me so that I can use my hearing screener in a quiet place."
                 Repeat if needed. Afterward, stop speaking.</p>
             <p>Green means all four estimated octave-band levels are at or below their reference limits;
                 red means at least one exceeds its limit. Grey means monitoring is off or no usable estimate is available.
                 Limits are 40, 40, 47, and 57 dB SPL at 500, 1000, 2000, and 4000 Hz.</p>
-            <p>Audio is processed locally and is not saved or uploaded. This optional indicator does not pause the hearing test.</p>
+            <p>Audio is processed locally and is not saved or uploaded. This optional indicator does not pause the hearing screener.</p>
             <button id="ambientCalibrate" type="button" disabled>Read sentence &amp; set reference</button>
             <button id="ambientStop" type="button" disabled>Stop microphone</button>
             <p id="ambientStatus" role="status">Microphone monitoring is off.</p>

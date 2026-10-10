@@ -22,9 +22,9 @@ function displayPCAResults(result) {
     const leftPTA4 = average(leftThresholds);
 
     document.getElementById("leftThreshold").textContent =
-        `Left ear PTA4: ${Math.round(leftPTA4)} dB HL`;
+        `Left Ear: ${Math.round(leftPTA4)}`;
     document.getElementById("rightThreshold").textContent =
-        `Right ear PTA4: ${Math.round(rightPTA4)} dB HL`;
+        `Right Ear: ${Math.round(rightPTA4)}`;
 
     resultFrequencies.forEach((frequency, index) => {
         document.getElementById(`valL${index}`).textContent =
@@ -61,6 +61,26 @@ function getAllTrials(testmode) {
     ];
 }
 
+function ambientNoiseCSV() {
+    const storedAverage = sessionStorage.getItem("ambientNoiseTestAverage");
+    const noise = storedAverage ? JSON.parse(storedAverage) : null;
+    let csv = "--- ESTIMATED AMBIENT NOISE DURING HEARING TEST ---\n";
+    csv += "Measurement basis,Assumed 62.5 dBA voice reference; not calibrated SPL\n";
+    if (!noise || noise.sampleCount === 0) {
+        return csv + "Monitoring result,Not available; no usable monitoring samples during the test\n\n";
+    }
+    csv += `Test duration (s),${noise.testDurationSeconds.toFixed(2)}\n`;
+    csv += `Sampled audio duration (s),${noise.sampledSeconds.toFixed(2)}\n`;
+    csv += `Monitoring coverage (%),${(100 * noise.sampledSeconds / noise.testDurationSeconds).toFixed(1)}\n`;
+    csv += `Usable sample count,${noise.sampleCount}\n`;
+    csv += `Microphone processing uncertain,${noise.processingUncertain ? "Yes" : "No"}\n`;
+    csv += "Frequency (Hz),Energy-average estimated ambient noise (dB SPL),Reference limit (dB SPL)\n";
+    noise.bands.forEach(band => {
+        csv += `${band.frequency},${band.averageDbSPL.toFixed(1)},${band.limit}\n`;
+    });
+    return csv + "\n";
+}
+
 function generateCSV() {
     const now = new Date();
     const startTime = sessionStorage.getItem("startTime") || "Not Provided";
@@ -82,7 +102,7 @@ function generateCSV() {
 
     if (fittedPCAResult) {
         const recon = fittedPCAResult.reconstructed[0];
-        csvContent += "PCA + Psychometric PTA4 (dB HL)\n";
+        csvContent += "PCA + Psychometric Hearing Number (four-frequency average, dB HL)\n";
         csvContent += `Left ear,${Math.round(average(recon.slice(6, 10)))}\n`;
         csvContent += `Right ear,${Math.round(average(recon.slice(2, 6)))}\n\n`;
         csvContent += "Frequency (Hz),PCA Left Threshold (dB HL),PCA Right Threshold (dB HL)\n";
@@ -98,6 +118,7 @@ function generateCSV() {
         csvContent += "PCA + Psychometric model,Not available\n\n";
     }
 
+    csvContent += ambientNoiseCSV();
     csvContent += "--- RAW TRIAL-BY-TRIAL LOG ---\n";
     csvContent += "Ear,Frequency (Hz),Level (dB HL),Response (Yes/No)\n";
     allTrials.forEach(trial => {

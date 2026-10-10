@@ -151,8 +151,8 @@ function runPCA() {
     }
     const sex = sexInput === "male" ? 1 : 2;
     const testMode = sessionStorage.getItem("testmode");
-    if (!Number.isFinite(age) || age <= 0) {
-        throw new Error("A valid age is required for PCA fitting.");
+    if (!isEligibleAdultAge(age)) {
+        throw new Error("This hearing screening tool requires an adult age in whole years, from 18 to 120.");
     }
     if (!["single", "both"].includes(testMode)) {
         throw new Error(`Unsupported test mode: ${testMode}`);

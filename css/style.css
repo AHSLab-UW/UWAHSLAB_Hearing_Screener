@@ -101,6 +101,67 @@ h6 {
     font-size:2rem;
 }
 
+.ambient-monitor {
+    width: min(90%, 40rem);
+    margin: 2rem 0 1rem;
+    border: 1px solid #8b93a5;
+    border-radius: 0.5rem;
+    background-color: #070D1B;
+    text-align: left;
+}
+
+.ambient-monitor p, .ambient-monitor label, .ambient-monitor button, .ambient-monitor summary {
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.ambient-monitor summary {
+    padding: 0.75rem;
+    cursor: pointer;
+}
+
+.ambient-indicator {
+    display: inline-block;
+    width: 0.75rem;
+    height: 0.75rem;
+    margin-right: 0.4rem;
+    border-radius: 50%;
+    background-color: #8b93a5;
+}
+
+.ambient-monitor .noise-quiet .ambient-indicator {
+    background-color: #70d994;
+}
+
+.ambient-monitor .noise-exceeded .ambient-indicator {
+    background-color: #ff7373;
+}
+
+.ambient-details-hint {
+    display: inline-block;
+    margin-left: 0.75rem;
+    color: #efc563;
+}
+
+.ambient-content {
+    padding: 0 1rem 1rem;
+}
+
+.ambient-monitor button {
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    padding: 0.6rem 1rem;
+    margin: 0.25rem 0;
+    border: 1px solid #8b93a5;
+    border-radius: 0.5rem;
+}
+
+.ambient-monitor summary:focus-visible {
+    outline: 2px solid #efc563;
+    outline-offset: 2px;
+}
+
 .numbers {
     font-size:5vw;
     color:greenyellow;
@@ -184,8 +245,8 @@ button:active {
     display:flex;
     flex-direction: row;
     align-items: center;
-    position:fixed;
-    top:28vh;
+    margin-top: 1rem;
+    flex-shrink: 0;
 }
 
 

@@ -29,9 +29,16 @@ const state = {
 const numbers = document.querySelector(".numbers");
 const enable = document.querySelector("#enableMessage");
 enable.addEventListener("click", async ()=>{
+    if (!isEligibleAdultAge(Number(sessionStorage.getItem("userAge")))) {
+        sessionStorage.removeItem("userAge");
+        alert("This hearing screening tool is for adults aged 18 or older. Please enter an eligible age before starting.");
+        window.location.href = "../pages/SurveyPage.html";
+        return;
+    }
     await audioCtxt.resume();
     const now = new Date();
     sessionStorage.setItem("startTime",now.toLocaleString());
+    window.ambientNoiseMonitor?.beginTest();
     enableYesOrNo();
     enable.disabled = true;
     setTimeout(() => {
@@ -178,6 +185,7 @@ function saveThresholdAndAdvance () {
 
 
 function finishTest() {
+    window.ambientNoiseMonitor?.endTest();
     if(state.testMode == "both"){
         let sum = 0;
         for(let i = 0 ; i < state.frequencies.length; i ++){

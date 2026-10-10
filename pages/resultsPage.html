@@ -15,11 +15,10 @@
         </div>
     </div>
     <hr />
-    <h2 class="hnumLabel">PCA-estimated <strong style="font-weight:800">PTA4</strong></h2>
-    <h2 class="result" id="leftThreshold">Left ear: --</h2>
-    <h2 class="result" id="rightThreshold">Right ear: --</h2>
-    <p id="pcaFitStatus" role="status"></p>
-    <p id="pcaError" role="alert"></p>
+    <h2 class="hnumLabel">Your <strong style="font-weight:800">Hearing Number</strong> is</h2>
+    <h2 class="result" id="leftThreshold">Left Ear: --</h2>
+    <h2 class="result" id="rightThreshold">Right Ear: --</h2>
+    <h6>A wellness-oriented snapshot to help you understand your hearing differences; it is not a medical diagnosis.</h6>
     <div class="gap"></div>
     <table id="resultsTable">
         <thead>
@@ -52,10 +51,13 @@
             </tr>
         </tbody>
     </table>
+    <p id="pcaFitStatus" role="status"></p>
+    <p id="pcaError" role="alert"></p>
 
     <button id="restartBtn"> Clear Results & Start New Test</button>
     <h6 id="dbHLCitation">Information about interpreting your Hearing Number can be found here:
         <a href = "https://hearingnumber.org/what-is-the-hearing-number/">What is a Hearing Number?</a> </h6>
+    <script src = "../js/ageEligibility.js"></script>
     <script src = "../js/results.js"></script>
     <script src = "../js/pca.js"></script>
 </body>

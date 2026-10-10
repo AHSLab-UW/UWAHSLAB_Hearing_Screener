@@ -18,10 +18,11 @@
     <hr />
 
     <h2> Please answer the following questions</h2>
+    <p id="adultEligibility">This hearing screening tool is for adults aged 18 or older.</p>
     
     <label for="age">What is your age?</label>
     <div class="age-input-container">
-        <input type="number" id="age" name="age" min="1" max="120" inputmode="numeric">
+        <input type="number" id="age" name="age" min="18" max="120" step="1" inputmode="numeric" aria-describedby="adultEligibility">
         <div class="stepper">
             <button class="arrow" id="stepUp">▲</button>
             <button class="arrow" id="stepDown">▼</button>   
@@ -42,6 +43,7 @@
     
     </div>
     <button id="nextBttn"> Next </button>
+    <script src = "../js/ageEligibility.js"></script>
     <script src = "../js/surveyPage.js"></script>
 </body>
 </html>

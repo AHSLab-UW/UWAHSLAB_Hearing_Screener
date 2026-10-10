@@ -1,7 +1,7 @@
-# UW AHSLAB Hearing Test
+# UW AHSLAB Hearing Screener
 
-A browser-based hearing test from the University of Washington Auditory Human
-Systems Laboratory (AHSLAB). The test plays tones at several frequencies,
+A browser-based hearing screener from the University of Washington Auditory Human
+Systems Laboratory (AHSLAB). The screener plays tones at several frequencies,
 records trial-by-trial Yes/No responses, and estimates a Hearing Number and
 frequency-specific thresholds using a PCA-informed psychometric model.
 
@@ -22,8 +22,14 @@ python3 -m http.server 8000
 
 Then open <http://localhost:8000> in a browser and select **Start**. Allow audio
 playback, use headphones in a quiet environment, and follow the on-screen
-instructions. The test asks for age and sex, then guides the participant
-through the hearing test and displays results.
+instructions. The screener asks for age and sex, then guides the participant
+through the hearing screening and displays results.
+
+On mobile phones, question choices and screening response buttons use the
+available viewport with large touch targets, retaining the existing colors and
+shapes. The main question and screening controls fit without scrolling at
+standard text sizes. Expanded optional room-noise instructions and enlarged text
+remain scrollable so that content is never clipped.
 
 Questions, form labels, and multiple-choice option text use a shared readable
 font size. Start and Next use the same navigation text size. The three
@@ -33,9 +39,9 @@ Pages scroll vertically so all options remain accessible on phones.
 
 ## Optional ambient noise monitoring
 
-Below the test controls, expand the compact room-noise status bar to access
+Below the screening controls, expand the compact room-noise status bar to access
 instructions and opt in to microphone monitoring. Read the displayed
-sentence for eight seconds before starting the hearing test. The app assumes
+sentence for eight seconds before starting the hearing screener. The app assumes
 the time-averaged voice level is 62.5 dBA and uses the A-weighted microphone
 spectrum as a rough reference. It then estimates unweighted octave-band SPL
 at 500, 1000, 2000, and 4000 Hz. The bar is green when all four estimates are
@@ -58,7 +64,7 @@ Microphone audio is processed locally, without saving or uploading recordings.
 Stop microphone, disable monitoring, hide the page, or leave the page to
 release microphone access. A new voice reference is required to resume.
 Permission or device failures are displayed without preventing the hearing
-test from running without monitoring.
+screener from running without monitoring.
 
 The CSV includes each band's energy-average estimated noise level over usable
 microphone samples collected between test Start and completion. It averages

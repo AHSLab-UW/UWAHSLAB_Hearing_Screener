@@ -176,7 +176,7 @@ function initializeAmbientNoise() {
             return;
         }
         if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-            setStatus("Microphone access requires a supported browser on HTTPS or localhost. You can still take the hearing test without monitoring.");
+            setStatus("Microphone access requires a supported browser on HTTPS or localhost. You can still use the hearing screener without monitoring.");
             return;
         }
         calibrateButton.disabled = true;
@@ -268,7 +268,7 @@ function initializeAmbientNoise() {
         } catch (error) {
             if (requestGeneration !== generation) return;
             console.error("Ambient noise monitoring could not start:", error);
-            await stop(`Microphone monitoring unavailable: ${error.message}. You can still take the hearing test without monitoring.`);
+            await stop(`Microphone monitoring unavailable: ${error.message}. You can still use the hearing screener without monitoring.`);
         }
     }
 

@@ -25,6 +25,12 @@ playback, use headphones in a quiet environment, and follow the on-screen
 instructions. The test asks for age and sex, then guides the participant
 through the hearing test and displays results.
 
+Questions, form labels, and multiple-choice option text use a shared readable
+font size. Start and Next use the same navigation text size. The three
+multiple-choice pages keep horizontal options on larger screens and
+automatically stack them vertically on screens 600 CSS pixels wide or less.
+Pages scroll vertically so all options remain accessible on phones.
+
 ## Optional ambient noise monitoring
 
 Below the test controls, expand the compact room-noise status bar to access

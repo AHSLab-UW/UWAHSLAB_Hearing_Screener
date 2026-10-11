@@ -96,9 +96,16 @@ P(Yes) = 1 / (1 + exp(-(level - threshold) / 5 dB))
 ```
 
 The posterior over PCA scores is updated from all retained responses using
-independent unit-normal score priors, shifted by the participant's age and sex
-projected through the corresponding trained PCA loadings. In both-ears mode, a
-Yes response is modeled as hearing the tone in either ear:
+independent normal score priors centered on the participant's age and sex
+projected through the corresponding trained PCA loadings. Because the trained
+loading columns have unit length, the scores are in dB-like units, and each
+prior SD must be the component's √eigenvalue, not 1. The current SDs
+(`PCA_SCORE_SD = [24, 12, 10]`) are **provisional** estimates. They imply adult
+threshold SDs of about 10–13 dB and should be replaced with
+`sqrt(explained_variance_)` from the NHANES training run. In the trained
+model, the age and sex loadings are very small (about 0.014 score units per
+year), so the prior shifts by less than 1 dB HL across the adult age range.
+In both-ears mode, a Yes response is modeled as hearing the tone in either ear:
 `P(Yes) = 1 - (1 - Pleft)(1 - Pright)`.
 
 Before the final fit, leave-one-out cross-validation (LOOCV) predicts each
@@ -109,7 +116,68 @@ prior alone and the results page states that no responses were used. The
 original stimuli and responses are not changed or deleted; the CSV export
 includes the complete raw trial log and per-trial LOOCV probabilities/
 exclusion flags. Posterior expectations are computed numerically over a grid
-of candidate PCA scores.
+of ±6 prior SDs in 0.25-SD steps. Exact LOOCV is computed by dividing each
+trial's likelihood out of the full posterior, so the fit takes about one
+second in a browser.
+
+### Robustness validation
+
+[`scripts/pcaRecoverySimulation.js`](scripts/pcaRecoverySimulation.js) drives
+the real staircase in `js/playAudio.js` with simulated listeners. It covers
+ages 25/45/65/80, both sexes, single-ear and both-ears modes, and seven
+ground-truth profiles (flat 0/20/40/60, high-frequency, sloping, asymmetric).
+It compares four estimates: the raw staircase (last Yes level), an unpooled
+per-frequency logistic fit, the legacy unit-variance PCA prior, and the
+current scaled PCA prior. Errors are measured against the true thresholds.
+Each experiment level reuses the same random seeds. Two experiments were run:
+
+1. **Calibration error:** a fixed, frequency-independent attenuation is
+   applied to every stimulus in a test.
+2. **Lapses:** on a proportion of trials, the listener answers Yes/No at random.
+
+Single-ear mean absolute error (dB, 56 simulated tests per level):
+
+| Attenuation | Raw staircase | Unpooled | Scaled PCA (current) |
+|-------------|---------------|----------|----------------------|
+| −20 dB | 10.4 | 18.0 | 20.3 |
+| −10 dB | 5.1 | 10.1 | 12.0 |
+| 0 dB | 8.7 | 5.8 | 5.4 |
+| +10 dB | 17.7 | 10.6 | 7.5 |
+| +20 dB | 27.3 | 20.3 | 15.4 |
+| +30 dB | 36.6 | 30.1 | 23.3 |
+
+| Lapse rate | Raw staircase | Unpooled | Scaled PCA (current) |
+|------------|---------------|----------|----------------------|
+| 0% | 8.7 | 5.8 | 5.4 |
+| 5% | 10.4 | 7.0 | 5.5 |
+| 10% | 11.5 | 8.2 | 5.7 |
+| 20% | 14.9 | 11.2 | 6.7 |
+| 30% | 17.7 | 13.3 | 7.3 |
+| 50% | 22.7 | 18.6 | 11.0 |
+
+Interpretation:
+
+- **Lapses:** the PCA fit is clearly more robust than either baseline. Its
+  error grows by only ~2 dB up to a 30% lapse rate, because LOOCV removes
+  responses that contradict the cross-frequency pattern (5% of trials
+  excluded at a 30% lapse rate), and because the covariance pools
+  information across frequencies and ears.
+- **Calibration:** the PCA fit gives only partial protection. The mean
+  bias rises 0.88 dB per dB of attenuation (0.83 in both-ears mode),
+  compared with ~0.95 for the baselines. The first trained component loads
+  positively on all eight thresholds, so a uniform calibration offset looks
+  exactly like a real flat change in hearing. No response-based model can
+  separate the two without an external level reference. The small reduction
+  comes from shrinkage toward the population prior, which also shrinks
+  genuine losses. The legacy unit prior showed a slope of ~0, but only
+  because it ignored the responses (17–19 dB error at every level). The raw
+  staircase looks best at −10 dB only because its own ~+8 dB step bias
+  happens to cancel the offset.
+
+Both-ears mode can identify only the better ear. The simulation assumes the
+model's own 5 dB psychometric slope; lapses are 50/50 guesses.
+
+Run it with `node scripts/pcaRecoverySimulation.js [report.json] [repetitions] [calibration,lapse]`.
 
 The results page reports a Hearing Number for each ear, calculated as the
 arithmetic mean of reconstructed thresholds at 500, 1000, 2000, and 4000 Hz,

@@ -16,7 +16,7 @@ function rule(selector) {
 test("questions, labels, sex choices and option text share the participant font size", () => {
     assert.match(rule(":root"), /--participant-text-size:\s*1\.5rem/);
     for (const selector of ["h2", "label", ".radio-face", ".likertText", ".likert-item h4"]) {
-        assert.match(rule(selector), /font-size:\s*var\(--participant-text-size\)/);
+        assert.match(rule(selector), /font-size:\s*var\(--participant-text-size[,)]/);
     }
 });
 

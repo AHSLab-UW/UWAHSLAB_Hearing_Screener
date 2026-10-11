@@ -12,29 +12,23 @@ const weights = [
     [0.34738457417164237, -0.3742727168503456, 0.563940830140357]
 ];
 
-const PCA_SCORE_RANGE = 4;
-const PCA_SCORE_STEP = 0.5;
+// The trained loading columns have unit L2 norm, so scores are in dB-like units and their
+// variance is the PCA eigenvalue, not 1. These SDs are provisional estimates chosen to imply
+// adult NHANES threshold SDs of about 10-13 dB; replace them with sqrt(explained_variance_)
+// from the NHANES training run when available.
+const PCA_SCORE_SD = [24, 12, 10];
+// Score grid in prior-SD units around the age/sex prior mean.
+const PCA_SCORE_RANGE_SD = 6;
+const PCA_SCORE_STEP_SD = 0.25;
 const PSYCHOMETRIC_SLOPE_DB = 5;
 const LOOCV_RESPONSE_CUTOFF = 0.05;
-const PCA_SCORE_AXIS = (() => {
-    const values = [];
-    for (let score = -PCA_SCORE_RANGE; score <= PCA_SCORE_RANGE; score += PCA_SCORE_STEP) {
-        values.push(Number(score.toFixed(6)));
-    }
-    return values;
-})();
-
-function createScoreGrid(priorMean) {
-    return PCA_SCORE_AXIS.flatMap(a =>
-        PCA_SCORE_AXIS.flatMap(b =>
-            PCA_SCORE_AXIS.map(c => [
-                a + priorMean[0],
-                b + priorMean[1],
-                c + priorMean[2]
-            ])
-        )
-    );
-}
+const DEFAULT_FIT_OPTIONS = {
+    scoreSD: PCA_SCORE_SD,
+    rangeSD: PCA_SCORE_RANGE_SD,
+    stepSD: PCA_SCORE_STEP_SD,
+    slopeDB: PSYCHOMETRIC_SLOPE_DB,
+    loocvCutoff: LOOCV_RESPONSE_CUTOFF
+};
 
 function stableSigmoid(value) {
     if (value >= 0) {
@@ -63,20 +57,20 @@ function thresholdIndexes(frequency) {
     return { right: frequencyIndex + 2, left: frequencyIndex + 6 };
 }
 
-function probabilityYes(thresholds, trial, testMode) {
+function probabilityYes(thresholds, trial, testMode, slopeDB = PSYCHOMETRIC_SLOPE_DB) {
     const indexes = thresholdIndexes(trial.frequency);
     const rightProbability = stableSigmoid(
-        (trial.levelHL - thresholds[indexes.right]) / PSYCHOMETRIC_SLOPE_DB
+        (trial.levelHL - thresholds[indexes.right]) / slopeDB
     );
     if (testMode === "both") {
         const leftProbability = stableSigmoid(
-            (trial.levelHL - thresholds[indexes.left]) / PSYCHOMETRIC_SLOPE_DB
+            (trial.levelHL - thresholds[indexes.left]) / slopeDB
         );
         return 1 - (1 - rightProbability) * (1 - leftProbability);
     }
     const thresholdIndex = trial.ear === "left" ? indexes.left : indexes.right;
     return stableSigmoid(
-        (trial.levelHL - thresholds[thresholdIndex]) / PSYCHOMETRIC_SLOPE_DB
+        (trial.levelHL - thresholds[thresholdIndex]) / slopeDB
     );
 }
 
@@ -100,47 +94,120 @@ function validateTrials(trials, testMode) {
     });
 }
 
-function buildGridLikelihoods(trials, testMode, scoreGrid) {
-    return scoreGrid.map(scores => {
-        const thresholds = reconstructFromScores(scores);
-        return trials.map(trial => probabilityYes(thresholds, trial, testMode));
-    });
-}
-
-function posteriorWeights(likelihoods, trials, scoreGrid, priorMean, omittedIndex = -1) {
-    const logPosterior = scoreGrid.map((scores, gridIndex) => {
-        let logWeight = -0.5 * scores.reduce((sum, score, component) =>
-            sum + (score - priorMean[component]) ** 2, 0
-        );
-        for (let trialIndex = 0; trialIndex < trials.length; trialIndex++) {
-            if (trialIndex === omittedIndex) continue;
-            const pYes = likelihoods[gridIndex][trialIndex];
-            logWeight += logProbability(trials[trialIndex].response === "yes" ? pYes : 1 - pYes);
-        }
-        return logWeight;
-    });
-
-    const maxLogWeight = Math.max(...logPosterior);
-    const unnormalized = logPosterior.map(value => Math.exp(value - maxLogWeight));
-    const total = unnormalized.reduce((sum, value) => sum + value, 0);
-    return unnormalized.map(value => value / total);
-}
-
-function posteriorMeanScores(posterior, scoreGrid) {
+function priorMeanScores(age, sex) {
     return [0, 1, 2].map(component =>
-        posterior.reduce((sum, weight, gridIndex) =>
-            sum + weight * scoreGrid[gridIndex][component], 0)
+        (age - mean[0]) * weights[0][component] + (sex - mean[1]) * weights[1][component]
     );
 }
 
-function leaveOneOutProbabilities(trials, likelihoods, scoreGrid, priorMean) {
-    return trials.map((trial, omittedIndex) => {
-        const posterior = posteriorWeights(likelihoods, trials, scoreGrid, priorMean, omittedIndex);
-        const predictedYes = posterior.reduce((sum, weight, gridIndex) =>
-            sum + weight * likelihoods[gridIndex][omittedIndex], 0
-        );
+function createScoreGrid(priorMean, options = DEFAULT_FIT_OPTIONS) {
+    const axis = [];
+    const halfSteps = Math.round(options.rangeSD / options.stepSD);
+    for (let step = -halfSteps; step <= halfSteps; step++) axis.push(step * options.stepSD);
+    const size = axis.length ** 3;
+    const scores = new Float64Array(size * 3);
+    const thresholds = new Float64Array(size * mean.length);
+    const logPrior = new Float64Array(size);
+    let point = 0;
+    for (const a of axis) for (const b of axis) for (const c of axis) {
+        const pointScores = [
+            priorMean[0] + a * options.scoreSD[0],
+            priorMean[1] + b * options.scoreSD[1],
+            priorMean[2] + c * options.scoreSD[2]
+        ];
+        scores.set(pointScores, point * 3);
+        thresholds.set(reconstructFromScores(pointScores), point * mean.length);
+        logPrior[point] = -0.5 * (a * a + b * b + c * c);
+        point++;
+    }
+    return { size, scores, thresholds, logPrior };
+}
+
+function compileTrials(trials, testMode) {
+    return trials.map(trial => {
+        const indexes = thresholdIndexes(trial.frequency);
+        return {
+            first: testMode === "both" || trial.ear === "right" ? indexes.right : indexes.left,
+            second: testMode === "both" ? indexes.left : -1,
+            levelHL: trial.levelHL,
+            yes: trial.response === "yes"
+        };
+    });
+}
+
+function compiledProbabilityYes(grid, point, trial, slopeDB) {
+    const offset = point * mean.length;
+    const first = stableSigmoid((trial.levelHL - grid.thresholds[offset + trial.first]) / slopeDB);
+    if (trial.second < 0) return first;
+    const second = stableSigmoid((trial.levelHL - grid.thresholds[offset + trial.second]) / slopeDB);
+    return 1 - (1 - first) * (1 - second);
+}
+
+function gridLogPosterior(grid, compiledTrials, slopeDB) {
+    const logPosterior = new Float64Array(grid.size);
+    let maximum = -Infinity;
+    for (let point = 0; point < grid.size; point++) {
+        let value = grid.logPrior[point];
+        for (const trial of compiledTrials) {
+            const pYes = compiledProbabilityYes(grid, point, trial, slopeDB);
+            value += logProbability(trial.yes ? pYes : 1 - pYes);
+        }
+        logPosterior[point] = value;
+        if (value > maximum) maximum = value;
+    }
+    return { logPosterior, maximum };
+}
+
+// Exact grid posterior with leave-one-out predictions. Each held-out posterior is the full
+// posterior divided by that trial's likelihood, so LOOCV costs two grid passes, not N + 1.
+function fitPCAPsychometric(rawTrials, testMode, age, sex, options = DEFAULT_FIT_OPTIONS) {
+    const trials = validateTrials(rawTrials, testMode);
+    const compiledTrials = compileTrials(trials, testMode);
+    const grid = createScoreGrid(priorMeanScores(age, sex), options);
+    const full = gridLogPosterior(grid, compiledTrials, options.slopeDB);
+
+    const heldOutWeight = new Float64Array(trials.length);
+    const heldOutYes = new Float64Array(trials.length);
+    for (let point = 0; point < grid.size; point++) {
+        const relative = full.logPosterior[point] - full.maximum;
+        if (relative < -60) continue;
+        compiledTrials.forEach((trial, trialIndex) => {
+            const pYes = compiledProbabilityYes(grid, point, trial, options.slopeDB);
+            const weight = Math.exp(relative - logProbability(trial.yes ? pYes : 1 - pYes));
+            heldOutWeight[trialIndex] += weight;
+            heldOutYes[trialIndex] += weight * pYes;
+        });
+    }
+    const loocvProbabilities = trials.map((trial, index) => {
+        const predictedYes = heldOutYes[index] / heldOutWeight[index];
         return trial.response === "yes" ? predictedYes : 1 - predictedYes;
     });
+    const excluded = loocvProbabilities.map(probability => probability < options.loocvCutoff);
+    const includedTrials = compiledTrials.filter((trial, index) => !excluded[index]);
+
+    const final = gridLogPosterior(grid, includedTrials, options.slopeDB);
+    let totalWeight = 0;
+    const scores = [0, 0, 0];
+    for (let point = 0; point < grid.size; point++) {
+        const weight = Math.exp(final.logPosterior[point] - final.maximum);
+        totalWeight += weight;
+        for (let component = 0; component < 3; component++) {
+            scores[component] += weight * grid.scores[point * 3 + component];
+        }
+    }
+    const posteriorScores = scores.map(score => score / totalWeight);
+
+    return {
+        scores: [posteriorScores],
+        reconstructed: [reconstructFromScores(posteriorScores)],
+        trialDiagnostics: trials.map((trial, index) => ({
+            ...trial,
+            observedResponseProbability: loocvProbabilities[index],
+            excluded: excluded[index]
+        })),
+        includedTrialCount: includedTrials.length,
+        excludedTrialCount: trials.length - includedTrials.length
+    };
 }
 
 function runPCA() {
@@ -164,37 +231,5 @@ function runPCA() {
             ...JSON.parse(sessionStorage.getItem("leftResponses") || "[]"),
             ...JSON.parse(sessionStorage.getItem("rightResponses") || "[]")
         ];
-    const trials = validateTrials(storedTrials, testMode);
-    const priorMean = [
-        (age - mean[0]) * weights[0][0] + (sex - mean[1]) * weights[1][0],
-        (age - mean[0]) * weights[0][1] + (sex - mean[1]) * weights[1][1],
-        (age - mean[0]) * weights[0][2] + (sex - mean[1]) * weights[1][2]
-    ];
-    const scoreGrid = createScoreGrid(priorMean);
-    const likelihoods = buildGridLikelihoods(trials, testMode, scoreGrid);
-    const loocvProbabilities = leaveOneOutProbabilities(trials, likelihoods, scoreGrid, priorMean);
-    const excludedTrials = [];
-    const includedTrials = trials.filter((trial, index) => {
-        const include = loocvProbabilities[index] >= LOOCV_RESPONSE_CUTOFF;
-        if (!include) excludedTrials.push(index);
-        return include;
-    });
-
-    const finalLikelihoods = buildGridLikelihoods(includedTrials, testMode, scoreGrid);
-    const posterior = posteriorWeights(finalLikelihoods, includedTrials, scoreGrid, priorMean);
-    const scores = posteriorMeanScores(posterior, scoreGrid);
-    const reconstructed = reconstructFromScores(scores);
-    const trialDiagnostics = trials.map((trial, index) => ({
-        ...trial,
-        observedResponseProbability: loocvProbabilities[index],
-        excluded: excludedTrials.includes(index)
-    }));
-
-    return {
-        scores: [scores],
-        reconstructed: [reconstructed],
-        trialDiagnostics,
-        includedTrialCount: includedTrials.length,
-        excludedTrialCount: excludedTrials.length
-    };
+    return fitPCAPsychometric(storedTrials, testMode, age, sex);
 }

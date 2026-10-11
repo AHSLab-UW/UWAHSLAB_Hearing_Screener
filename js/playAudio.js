@@ -1,8 +1,5 @@
 let audioCtxt = new AudioContext();
 
-// RETSPLs (dB SPL at 0 dB HL) for the recommended Sennheiser HD 280 Pro, IEC 60318 coupler
-// with flat-plate adapter (Smull, Madsen & Margolis, 2019, Ear Hear 40(1):177-183).
-const RETSPL_HD280_PRO = { 500: 6.8, 1000: 1.4, 2000: 1.9, 4000: 2.2 };
 
 let gain = audioCtxt.createGain();;
 let panner = audioCtxt.createStereoPanner();  ;
@@ -13,6 +10,7 @@ let nodes;
 let testConfig;
 let currentTest;
 let testGainOffsetDB = 0;
+let testTransducer = DEFAULT_TRANSDUCER;
 
 const state = {
     testMode: sessionStorage.getItem("testmode"), //single or both
@@ -38,6 +36,8 @@ enable.addEventListener("click", async ()=>{
     }
     const calibration = window.levelCalibration ? window.levelCalibration.beginTest() : storedLevelCalibration();
     testGainOffsetDB = calibration ? calibration.gainOffsetDB : 0;
+    testTransducer = window.levelCalibration ? window.levelCalibration.transducer() : selectedTransducer();
+    sessionStorage.setItem("transducerUsed", testTransducer);
     sessionStorage.setItem(LEVEL_CALIBRATION_USED_KEY, JSON.stringify(calibration || { method: "none" }));
     await audioCtxt.resume();
     const now = new Date();
@@ -84,7 +84,8 @@ function playTestTone(frequency, dbHL, whichEar, needVisual) {
     audioCtxt.resume(); 
     let oscillator = audioCtxt.createOscillator();;
     oscillator.frequency.value = frequency;
-    let dbSPL = dbHL + RETSPL_HD280_PRO[frequency];
+    // Transducer-specific RETSPLs (TRANSDUCERS in perceptualCalibration.js).
+    let dbSPL = dbHL + retsplFor(frequency, testTransducer);
     console.log(state.freqIndex);
     // Levels are relative to the optional level calibration (perceptualCalibration.js).
     let volume = splToAmplitude(dbSPL, testGainOffsetDB);

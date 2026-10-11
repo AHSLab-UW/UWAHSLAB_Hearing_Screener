@@ -15,6 +15,7 @@ function exportContext(noise) {
         window: {},
         sessionStorage: { getItem: key => stored.get(key) ?? null }
     });
+    vm.runInContext(fs.readFileSync(path.join(__dirname, "../js/perceptualCalibration.js"), "utf8"), context);
     vm.runInContext(fs.readFileSync(path.join(__dirname, "../js/results.js"), "utf8"), context);
     return context;
 }
@@ -29,6 +30,8 @@ test("CSV exports average band levels, coverage, and raw responses", () => {
     });
     const csv = context.generateCSV();
     assert.match(csv, /Monitoring coverage \(%\),50\.0/);
+    assert.match(csv, /Transducer,Supra-\/circumaural headphones \(recommended: Sennheiser HD 280 Pro\)/);
+    assert.match(csv, /RETSPL 500\/1000\/2000\/4000 Hz \(dB SPL\),6\.8\/1\.4\/1\.9\/2\.2/);
     assert.match(csv, /500,30\.0,47/);
     assert.match(csv, /4000,33\.0,59/);
     assert.match(csv, /Microphone processing uncertain,Yes/);

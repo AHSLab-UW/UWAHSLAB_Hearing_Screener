@@ -9,7 +9,7 @@ const load = (context, file) =>
     vm.runInContext(fs.readFileSync(path.join(root, "js", file), "utf8"), context);
 const ids = ["levelCalibrationPanel", "levelCalibrationSummary", "levelCalibrationLabel", "levelCalibrationStatus",
     "couplerPlay", "couplerSave", "mclStart", "mclVolumeSet", "mclSofter", "mclLouder", "mclComfortable",
-    "mclCancel", "calibrationClear"];
+    "mclCancel", "calibrationClear", "transducer-headphones", "transducer-earbuds"];
 
 function element() {
     const handlers = {};
@@ -41,6 +41,8 @@ FakeAudioContext.instances = [];
 
 function setup({ storage = memoryStorage(), random = () => 0.5, now = new Date("2026-10-10T10:00:00Z") } = {}) {
     const elements = Object.fromEntries(ids.map(id => [id, element()]));
+    elements["transducer-headphones"].value = "headphones";
+    elements["transducer-earbuds"].value = "earbuds";
     const context = vm.createContext({});
     load(context, "perceptualCalibration.js");
     FakeAudioContext.instances = [];
@@ -158,11 +160,46 @@ function screeningContext(local) {
     return { context, handlers, stored, levels };
 }
 
+test("transducer switch selects RETSPLs and calibrations only apply to the transducer they were made with", async () => {
+    const { elements, context, storage, click } = setup();
+    assert.equal(context.selectedTransducer(storage), "headphones");
+    assert.equal(elements["transducer-headphones"].checked, true);
+    assert.deepEqual([500, 1000, 2000, 4000].map(f => context.retsplFor(f, "headphones")), [6.8, 1.4, 1.9, 2.2]);
+    assert.deepEqual([500, 1000, 2000, 4000].map(f => context.retsplFor(f, "earbuds")), [9.5, 4.4, 0.0, 6.7]);
+    await click("couplerPlay");
+    assert.equal(elements["transducer-earbuds"].disabled, true, "switch is locked while calibrating");
+    await click("couplerSave");
+    assert.equal(JSON.parse(storage.map.get("levelCalibration")).transducer, "headphones");
+    assert.match(elements.levelCalibrationLabel.textContent, /\(headphones\): coupler/);
+
+    elements["transducer-earbuds"].checked = true;
+    elements["transducer-earbuds"].handlers.change();
+    assert.equal(storage.map.get("transducerType"), "earbuds");
+    assert.match(elements.levelCalibrationLabel.textContent, /\(earbuds\): not set/);
+    assert.match(elements.levelCalibrationStatus.textContent, /Calibrate again/);
+    assert.equal(context.storedLevelCalibration(storage), null);
+
+    elements["transducer-headphones"].checked = true;
+    elements["transducer-headphones"].handlers.change();
+    assert.ok(context.storedLevelCalibration(storage, new Date("2026-10-10T10:30:00Z")));
+});
+
 test("screening starts without calibration and records that it was not calibrated", async () => {
     const { context, handlers, stored } = screeningContext(memoryStorage());
     await handlers["#enableMessage"]();
     assert.equal(context.window.location.href, undefined);
     assert.equal(JSON.parse(stored.get("levelCalibrationUsed")).method, "none");
+    assert.equal(stored.get("transducerUsed"), "headphones");
+});
+
+test("screening with earbuds selected uses the earbud RETSPLs", async () => {
+    const local = memoryStorage([["transducerType", "earbuds"]]);
+    const { context, handlers, stored, levels } = screeningContext(local);
+    await handlers["#enableMessage"]();
+    assert.equal(stored.get("transducerUsed"), "earbuds");
+    context.playTestTone(4000, 30, 0, false);
+    const expected = 0.1 * 10 ** ((30 + 6.7 - 93.5) / 20);
+    assert.ok(Math.abs(levels.at(-1) / expected - 1) < 1e-12);
 });
 
 test("screening applies the stored calibration offset to test tones", async () => {

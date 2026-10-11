@@ -63,6 +63,10 @@ function getAllTrials(testmode) {
 
 function levelCalibrationCSV() {
     let csv = "--- LEVEL CALIBRATION ---\n";
+    const transducer = TRANSDUCERS[sessionStorage.getItem("transducerUsed")] || TRANSDUCERS[DEFAULT_TRANSDUCER];
+    csv += `Transducer,${transducer.label} (recommended: ${transducer.recommended})\n`;
+    csv += `RETSPL source,${transducer.retsplSource}\n`;
+    csv += `RETSPL 500/1000/2000/4000 Hz (dB SPL),${[500, 1000, 2000, 4000].map(f => transducer.retspl[f]).join("/")}\n`;
     let record = null;
     try {
         record = JSON.parse(sessionStorage.getItem("levelCalibrationUsed") || "null");

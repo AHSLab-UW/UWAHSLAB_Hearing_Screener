@@ -11,6 +11,28 @@
 //               descending runs cancels the approach bias (Hochberg, 1975; Punch et al., 2004)
 //               and reduces within-listener scatter. See README.
 // Browsers cannot read or lock the device volume, so it must not be changed afterwards.
+// Transducer categories and their RETSPLs (dB SPL at 0 dB HL), used for dB HL -> dB SPL.
+const TRANSDUCERS = {
+    headphones: {
+        label: "Supra-/circumaural headphones",
+        shortLabel: "headphones",
+        recommended: "Sennheiser HD 280 Pro",
+        // HD 280 Pro, IEC 60318 coupler with flat-plate adapter (Smull, Madsen & Margolis, 2019).
+        retspl: { 500: 6.8, 1000: 1.4, 2000: 1.9, 4000: 2.2 },
+        retsplSource: "Smull, Madsen & Margolis (2019), Sennheiser HD 280 Pro"
+    },
+    earbuds: {
+        label: "Bluetooth earbuds",
+        shortLabel: "earbuds",
+        recommended: "Apple AirPods",
+        // Measured for wired Apple EarPods MB770G (Ho, Li & Young, 2017); applied to AirPods as an
+        // approximation because no AirPods RETSPLs are published.
+        retspl: { 500: 9.5, 1000: 4.4, 2000: 0.0, 4000: 6.7 },
+        retsplSource: "Ho, Li & Young (2017), Apple EarPods"
+    }
+};
+const DEFAULT_TRANSDUCER = "headphones";
+const TRANSDUCER_KEY = "transducerType";
 const CALIBRATION_FREQUENCY_HZ = 1000;
 const CALIBRATION_TARGET_DB_SPL = 75;
 // Device assumption without calibration (0.1 amplitude = 93.5 dB SPL); it sets the digital
@@ -36,26 +58,42 @@ function defaultLocalStorage() {
     }
 }
 
+function selectedTransducer(storage = defaultLocalStorage()) {
+    try {
+        const value = storage?.getItem(TRANSDUCER_KEY);
+        return Object.hasOwn(TRANSDUCERS, value) ? value : DEFAULT_TRANSDUCER;
+    } catch {
+        return DEFAULT_TRANSDUCER;
+    }
+}
+
+function retsplFor(frequency, transducer = DEFAULT_TRANSDUCER) {
+    return (TRANSDUCERS[transducer] || TRANSDUCERS[DEFAULT_TRANSDUCER]).retspl[frequency];
+}
+
 // gainOffsetDB is the digital level (re the reference tone) assumed to give 75 dB SPL.
 function splToAmplitude(dbSPL, gainOffsetDB = 0) {
     return CALIBRATION_AMPLITUDE * 10 ** ((dbSPL - CALIBRATION_TARGET_DB_SPL + gainOffsetDB) / 20);
 }
 
-function storedLevelCalibration(storage = defaultLocalStorage(), now = new Date()) {
+// A calibration is valid only for the transducer it was made with.
+function storedLevelCalibration(storage = defaultLocalStorage(), now = new Date(), transducer = selectedTransducer(storage)) {
     if (!storage) return null;
     try {
         const record = JSON.parse(storage.getItem(LEVEL_CALIBRATION_KEY) || "null");
         if (!record || !["coupler", "perceptual"].includes(record.method)) return null;
         if (!(Date.parse(record.expiresAt) > now.getTime())) return null;
+        if ((record.transducer || DEFAULT_TRANSDUCER) !== transducer) return null;
         return record;
     } catch {
         return null;
     }
 }
 
-function baseRecord(method, now) {
+function baseRecord(method, now, transducer) {
     return {
         method,
+        transducer,
         frequencyHz: CALIBRATION_FREQUENCY_HZ,
         targetDbSPL: CALIBRATION_TARGET_DB_SPL,
         completedAt: now.toISOString(),
@@ -63,11 +101,11 @@ function baseRecord(method, now) {
     };
 }
 
-function createCouplerRecord(now = new Date()) {
-    return { ...baseRecord("coupler", now), gainOffsetDB: 0 };
+function createCouplerRecord(now = new Date(), transducer = DEFAULT_TRANSDUCER) {
+    return { ...baseRecord("coupler", now, transducer), gainOffsetDB: 0 };
 }
 
-function createPerceptualRecord(runs, now = new Date()) {
+function createPerceptualRecord(runs, now = new Date(), transducer = DEFAULT_TRANSDUCER) {
     const settings = runs.map(run => run.settingDB);
     const mean = values => values.reduce((sum, value) => sum + value, 0) / values.length;
     const average = mean(settings);
@@ -76,7 +114,7 @@ function createPerceptualRecord(runs, now = new Date()) {
     const round = value => Math.round(value * 10) / 10;
     const range = Math.max(...settings) - Math.min(...settings);
     return {
-        ...baseRecord("perceptual", now),
+        ...baseRecord("perceptual", now, transducer),
         gainOffsetDB: round(average),
         runs,
         settingSDDB: round(sd),
@@ -105,6 +143,7 @@ function initializeLevelCalibration({
     const summary = $("levelCalibrationSummary");
     const label = $("levelCalibrationLabel");
     const status = $("levelCalibrationStatus");
+    const transducerInputs = Object.keys(TRANSDUCERS).map(key => $(`transducer-${key}`));
     const buttons = {
         couplerPlay: $("couplerPlay"), couplerSave: $("couplerSave"),
         mclStart: $("mclStart"), mclVolumeSet: $("mclVolumeSet"),
@@ -120,11 +159,14 @@ function initializeLevelCalibration({
 
     function setEnabled(enabled) {
         for (const [name, button] of Object.entries(buttons)) button.disabled = !enabled.includes(name);
+        for (const input of transducerInputs) input.disabled = mode !== "idle";
     }
 
     function refresh() {
-        const record = storedLevelCalibration(storage, now());
-        label.textContent = `Level calibration: ${describeCalibration(record)}`;
+        const transducer = selectedTransducer(storage);
+        for (const input of transducerInputs) input.checked = input.value === transducer;
+        const record = storedLevelCalibration(storage, now(), transducer);
+        label.textContent = `Level calibration (${TRANSDUCERS[transducer].shortLabel}): ${describeCalibration(record)}`;
         summary.classList.toggle("calibration-set", Boolean(record) && record.consistent !== false);
         summary.classList.toggle("calibration-variable", Boolean(record) && record.consistent === false);
         if (mode === "idle") setEnabled(record ? ["couplerPlay", "mclStart", "calibrationClear"] : ["couplerPlay", "mclStart"]);
@@ -200,7 +242,7 @@ function initializeLevelCalibration({
     }));
 
     buttons.couplerSave.addEventListener("click", () => {
-        storage?.setItem(LEVEL_CALIBRATION_KEY, JSON.stringify(createCouplerRecord(now())));
+        storage?.setItem(LEVEL_CALIBRATION_KEY, JSON.stringify(createCouplerRecord(now(), selectedTransducer(storage))));
         finish(`Coupler calibration saved for ${CALIBRATION_VALID_HOURS} hours. Do not change the device volume.`);
     });
 
@@ -236,7 +278,7 @@ function initializeLevelCalibration({
     buttons.mclComfortable.addEventListener("click", () => {
         runs[runs.length - 1].settingDB = offsetDB;
         if (runs.length < MCL_RUN_DIRECTIONS.length) return startRun();
-        const record = createPerceptualRecord(runs, now());
+        const record = createPerceptualRecord(runs, now(), selectedTransducer(storage));
         storage?.setItem(LEVEL_CALIBRATION_KEY, JSON.stringify(record));
         finish(record.consistent
             ? `Perceptual calibration saved for ${CALIBRATION_VALID_HOURS} hours. Do not change the device volume.`
@@ -250,6 +292,16 @@ function initializeLevelCalibration({
         finish("Calibration cleared.");
     });
 
+    for (const input of transducerInputs) {
+        input.addEventListener("change", () => {
+            if (!input.checked) return;
+            storage?.setItem(TRANSDUCER_KEY, input.value);
+            const record = refresh();
+            status.textContent = `${TRANSDUCERS[input.value].label} selected (${TRANSDUCERS[input.value].recommended} recommended). ` +
+                (record ? "A calibration for this transducer is active." : "Calibrate again with this transducer.");
+        });
+    }
+
     status.textContent = refresh()
         ? "A calibration from this sitting is active. Keep the same device, headphones and volume."
         : "No calibration is set. Choose one of the methods above, or start the screening without calibration.";
@@ -260,10 +312,12 @@ function initializeLevelCalibration({
             stopTone();
             mode = "locked";
             setEnabled([]);
+            for (const input of transducerInputs) input.disabled = true;
             panel.open = false;
             status.textContent = "Calibration is locked during the screening.";
             return storedLevelCalibration(storage, now());
-        }
+        },
+        transducer: () => selectedTransducer(storage)
     };
 }
 

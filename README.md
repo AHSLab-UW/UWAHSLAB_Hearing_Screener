@@ -3,7 +3,8 @@
 A browser-based hearing screener from the University of Washington Auditory Human
 Systems Laboratory (AHSLAB). The screener plays tones at several frequencies,
 records trial-by-trial Yes/No responses, and estimates a Hearing Number and
-frequency-specific thresholds using a PCA-informed psychometric model.
+frequency-specific thresholds using a PCA-informed psychometric model that
+makes the results robust to occasional lapses of attention.
 
 This tool is intended only for adults aged 18 or older. Participants under 18
 cannot continue past the age-entry page; they should seek age-appropriate
@@ -25,25 +26,39 @@ playback, use headphones in a quiet environment, and follow the on-screen
 instructions. The screener asks for age and sex, then guides the participant
 through the hearing screening and displays results.
 
-## Recommended headphones and level calibration
+## Transducers and level calibration
 
-The recommended headphones are the **Sennheiser HD 280 Pro** (closed-back,
-circumaural). Tone levels are specified in dB HL and converted to dB SPL with
-the HD 280 Pro reference equivalent threshold sound pressure levels (RETSPLs)
-reported by Smull, Madsen, and Margolis ([2019](#references)). These values were
-measured in an IEC 60318 coupler with a flat-plate adapter.
+The **Level calibration** panel on the screening page has a transducer switch
+with two categories. The choice is saved on the device and sets the dB HL to
+dB SPL conversion (`dB SPL = dB HL + RETSPL`):
 
-| Frequency (Hz) | HD 280 Pro RETSPL (dB SPL at 0 dB HL) |
-|----------------|---------------------------------------|
-| 500 | 6.8 |
-| 1000 | 1.4 |
-| 2000 | 1.9 |
-| 4000 | 2.2 |
+1. **Supra-/circumaural headphones** (default). Recommended: **Sennheiser HD
+   280 Pro** (closed-back, circumaural). RETSPLs from Smull, Madsen, and
+   Margolis ([2019](#references)), measured in an IEC 60318 coupler with a
+   flat-plate adapter.
+2. **Bluetooth earbuds.** Recommended: **Apple AirPods**. RETSPLs from Ho,
+   Li, and Young ([2017](#references)), measured with 36 normal-hearing adults
+   (72 ears). That study measured wired **Apple EarPods (MB770G)**; no
+   AirPods RETSPLs have been published, so these values are an approximation
+   for AirPods. Turn off noise cancellation, transparency, Conversation
+   Awareness, Headphone Accommodations, and volume limits during calibration
+   and screening.
 
-The values are stored by frequency in `RETSPL_HD280_PRO` in
-[`js/playAudio.js`](js/playAudio.js) (`dB SPL = dB HL + RETSPL`). Other
-headphones would need their own RETSPLs. Browsers cannot read or lock the
-device volume, so the digital-to-acoustic level is set by an optional level
+| Frequency (Hz) | HD 280 Pro RETSPL (dB SPL) | EarPods RETSPL (dB SPL, mean ± SD) |
+|----------------|----------------------------|------------------------------------|
+| 500 | 6.8 | 9.5 ± 6.3 |
+| 1000 | 1.4 | 4.4 ± 6.9 |
+| 2000 | 1.9 | 0.0 ± 5.7 |
+| 4000 | 2.2 | 6.7 ± 6.3 |
+
+The values are stored by frequency in `TRANSDUCERS` in
+[`js/perceptualCalibration.js`](js/perceptualCalibration.js). Other
+transducers would need their own RETSPLs. The transducer is locked when a
+screening starts, and the CSV export reports the transducer, RETSPL source,
+and values used. The ambient-noise limits assume HD 280 Pro attenuation.
+Earbuds without noise cancellation block much less room noise, so those
+limits are too lenient for earbuds. Browsers cannot read or lock the device
+volume, so the digital-to-acoustic level is set by an optional level
 calibration (below).
 
 ### Optional level calibration
@@ -51,14 +66,16 @@ calibration (below).
 The screening page has a collapsible **Level calibration** bar next to the
 room-noise bar. Calibration is opt-in and is meant to be done once per
 sitting. The result is stored in the browser's `localStorage` for 4 hours
-and reused by later screenings with the same device, headphones, and volume
-setting. **Clear calibration** removes it. All test levels are relative to a
+and reused by later screenings with the same device, transducer, and volume
+setting. A calibration applies only to the transducer it was made with:
+switching transducers requires a new one. **Clear calibration** removes it. All test levels are relative to a
 1 kHz reference tone generated at the digital level that would be 75 dB SPL
 under the uncalibrated device assumption (0.1 amplitude = 93.5 dB SPL). The
 code is in [`js/perceptualCalibration.js`](js/perceptualCalibration.js).
 
-1. **Coupler / sound level meter.** With an HD 280 Pro earcup on a coupler
-   (flat-plate adapter), the operator plays the continuous reference tone and
+1. **Coupler / sound level meter.** With one earcup or earbud on a coupler
+   matching the transducer's RETSPL reference (flat-plate adapter for the HD
+   280 Pro), the operator plays the continuous reference tone and
    adjusts the device volume until the meter reads 75 dB SPL, then saves.
    Accuracy is then limited by the meter and the device's volume step size.
 2. **Perceptual (no meter).** The participant first uses the device volume to
@@ -115,20 +132,6 @@ biological calibration of home audiometry had a calibration-error SD of
 therefore a coarse, roughly ±15 dB (95%) calibration, not an acoustic
 calibration. Use the coupler method whenever a meter is available.
 
-**Can the PCA fit correct it?** Only slightly. An MCL offset is uniform
-across frequencies and ears, so it looks the same as a real flat change in
-hearing (see the calibration and MCL experiments under
-[Robustness validation](#robustness-validation)). The fit removes 12–17% of
-a uniform offset, and it does so by pulling all results toward the
-population mean, including genuine losses. With an 8 dB offset SD, the
-single-ear error is 8.8 dB with the PCA fit, 8.8 dB with the unpooled fit,
-and 9.5 dB with the raw staircase, versus 5.4 dB with perfect calibration.
-Adding the offset as a latent variable with an MCL prior would at best
-remove an estimated 10–25% more, in exchange for the same shrinkage of real
-losses. External level information would be needed to do much better, for
-example a sound-level-meter calibration of the device and headphone or
-biological calibration against a listener with known thresholds.
-
 On mobile phones, question choices and screening response buttons use the
 available viewport with large touch targets, retaining the existing colors and
 shapes. The main question and screening controls fit without scrolling at
@@ -158,8 +161,7 @@ extends the
 [OSHA 29 CFR 1910.95 Appendix D](https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.95AppD)
 room limits (40, 40, 47, and 57 dB SPL for supra-aural earphones) by adding
 the extra attenuation of circumaural earphones. The limits assume the
-participant is wearing HD 280 Pro headphones. They are octave-band, not
-one-third-octave, limits.
+participant is wearing HD 280 Pro headphones.
 
 A spoken sentence with an assumed level cannot establish traceable acoustic
 calibration or a microphone's frequency response. Voice level, mouth-to-mic
@@ -186,6 +188,17 @@ or stopped monitoring, are not filled in; no usable samples yields "Not
 available". The estimates can include participant speech or leaked test tones.
 
 ## PCA + psychometric model
+
+**Objective: robustness to attentional lapses.** A short staircase is easily
+derailed by a single lapse of attention: a missed tone that the participant
+could hear, or a Yes when no tone was heard. Each response directly moves the 
+staircase, and a single wrong answer near the stopping rule can shift a
+threshold by 10 dB or more. The PCA fit makes the screener robust to such
+lapses in two ways. First, the trained covariance pools evidence across
+frequencies and ears, so one inconsistent response is weighed against all
+other responses rather than determining a threshold on its own. Second,
+leave-one-out cross-validation identifies and excludes responses that are
+implausible given the rest of the participant's data.
 
 The PCA mean and three-component loading matrix in [`js/pca.js`](js/pca.js)
 were trained using a large NHANES database. They provide population-informed
@@ -239,25 +252,20 @@ ground-truth profiles (flat 0/20/40/60, high-frequency, sloping, asymmetric).
 It compares four estimates: the raw staircase (last Yes level), an unpooled
 per-frequency logistic fit, the legacy unit-variance PCA prior, and the
 current scaled PCA prior. Errors are measured against the true thresholds.
-Each experiment level reuses the same random seeds. Two experiments were run:
+Each experiment level reuses the same random seeds. The primary experiment
+tests the intended purpose of the PCA fit, robustness to lapses. Two further
+experiments document how the fit interacts with level-calibration errors,
+which it is not designed to correct:
 
-1. **Calibration error:** a fixed, frequency-independent attenuation is
+1. **Lapses (primary):** on a proportion of trials, the listener answers
+   Yes/No at random.
+2. **Calibration error:** a fixed, frequency-independent attenuation is
    applied to every stimulus in a test.
-2. **Lapses:** on a proportion of trials, the listener answers Yes/No at random.
 3. **MCL calibration:** each test gets a random offset
    e = 0.2 × max(0, better-ear PTA − 20) + σz, with z ~ N(0, 1), modelling the
    perceptual calibration error. Stimuli are e dB louder than intended.
 
 Single-ear mean absolute error (dB, 56 simulated tests per level):
-
-| Attenuation | Raw staircase | Unpooled | Scaled PCA (current) |
-|-------------|---------------|----------|----------------------|
-| −20 dB | 10.4 | 18.0 | 20.3 |
-| −10 dB | 5.1 | 10.1 | 12.0 |
-| 0 dB | 8.7 | 5.8 | 5.4 |
-| +10 dB | 17.7 | 10.6 | 7.5 |
-| +20 dB | 27.3 | 20.3 | 15.4 |
-| +30 dB | 36.6 | 30.1 | 23.3 |
 
 | Lapse rate | Raw staircase | Unpooled | Scaled PCA (current) |
 |------------|---------------|----------|----------------------|
@@ -267,6 +275,15 @@ Single-ear mean absolute error (dB, 56 simulated tests per level):
 | 20% | 14.9 | 11.2 | 6.7 |
 | 30% | 17.7 | 13.3 | 7.3 |
 | 50% | 22.7 | 18.6 | 11.0 |
+
+| Attenuation | Raw staircase | Unpooled | Scaled PCA (current) |
+|-------------|---------------|----------|----------------------|
+| −20 dB | 10.4 | 18.0 | 20.3 |
+| −10 dB | 5.1 | 10.1 | 12.0 |
+| 0 dB | 8.7 | 5.8 | 5.4 |
+| +10 dB | 17.7 | 10.6 | 7.5 |
+| +20 dB | 27.3 | 20.3 | 15.4 |
+| +30 dB | 36.6 | 30.1 | 23.3 |
 
 | MCL offset SD σ | Raw staircase | Unpooled | Scaled PCA (current) |
 |-----------------|---------------|----------|----------------------|
@@ -282,20 +299,21 @@ Interpretation:
   responses that contradict the cross-frequency pattern (5% of trials
   excluded at a 30% lapse rate), and because the covariance pools
   information across frequencies and ears.
-- **Calibration:** the PCA fit gives only partial protection. The mean
+- **Calibration (interaction only):** the PCA fit does not remove
+  calibration errors, and it is not intended to. The mean
   bias rises 0.88 dB per dB of attenuation (0.83 in both-ears mode),
   compared with ~0.95 for the baselines. The first trained component loads
   positively on all eight thresholds, so a uniform calibration offset looks
   exactly like a real flat change in hearing. No response-based model can
-  separate the two without an external level reference. The small reduction
-  comes from shrinkage toward the population prior, which also shrinks
-  genuine losses. The legacy unit prior showed a slope of ~0, but only
-  because it ignored the responses (17–19 dB error at every level). The raw
+  separate the two without an external level reference. The slightly lower
+  slope reflects shrinkage toward the population prior, which equally
+  shrinks genuine losses, so it should not be read as a correction. The raw
   staircase looks best at −10 dB only because its own ~+8 dB step bias
   happens to cancel the offset.
-- **MCL calibration:** with the literature-based σ of ~8 dB, the
-  perceptual-calibration error dominates the result, and the PCA fit
-  performs about the same as the unpooled fit. Under the hearing-loss term
+- **MCL calibration (interaction only):** with the literature-based σ of
+  ~8 dB, the perceptual-calibration error dominates the result, and the PCA
+  fit performs about the same as the unpooled fit. Calibration accuracy must
+  come from the calibration procedure. Under the hearing-loss term
   alone (σ = 0), the PCA fit has a −4.7 dB mean bias, because both the MCL
   shift and the population prior push large losses downward.
 
@@ -309,10 +327,10 @@ The results page reports a Hearing Number for each ear, calculated as the
 arithmetic mean of reconstructed thresholds at 500, 1000, 2000, and 4000 Hz,
 alongside those frequency-specific thresholds. The number is presented as a
 wellness-oriented snapshot to help people understand hearing differences,
-not as a medical diagnosis. It is a population-informed estimate, not a direct
-equipment calibration or a guarantee of improved accuracy. Systematic errors
-that align with learned population patterns may remain, and genuine atypical
-profiles may also be smoothed.
+not as a medical diagnosis. It is a population-informed estimate that is
+robust to occasional lapses of attention, but it does not correct level
+calibration errors. Systematic errors such as a calibration offset pass into
+the reported thresholds, and genuine atypical profiles may also be smoothed.
 
 ## Project layout
 
@@ -336,6 +354,7 @@ the session ends or the browser clears site data.
 - Berger, K. W., Harrison, L. D., Monack, N., & Ferren, G. E. (1980). Comfortable loudness judgments for discrete frequency signals. *Journal of Auditory Research*, *20*(2), 119–127. PMID 7345058.
 - Dirks, D. D., & Kamm, C. (1976). Psychometric functions for loudness discomfort and most comfortable loudness levels. *Journal of Speech and Hearing Research*, *19*(4), 613–627. <https://doi.org/10.1044/jshr.1904.613>
 - Hawley, M. L., Sherlock, L. P., & Formby, C. (2017). Intra- and intersubject variability in audiometric measures and loudness judgments in older listeners with normal hearing. *Seminars in Hearing*, *38*(1), 3–25. <https://doi.org/10.1055/s-0037-1598063>
+- Ho, C.-Y., Li, P.-C., & Young, S.-T. (2017). Reference equivalent threshold sound pressure levels for Apple EarPods. *The Journal of the Acoustical Society of America*, *141*(2), EL115–EL119. <https://doi.org/10.1121/1.4976110>
 - Hochberg, I. (1975). Most comfortable listening for the loudness and intelligibility of speech. *Audiology*, *14*(1), 27–33. <https://doi.org/10.3109/00206097509071720>
 - Kamm, C., Dirks, D. D., & Mickey, M. R. (1978). Effect of sensorineural hearing loss on loudness discomfort level and most comfortable loudness judgments. *Journal of Speech and Hearing Research*, *21*(4), 668–681. <https://doi.org/10.1044/jshr.2104.668>
 - Margolis, R. H., Saly, G. L., & Wilson, R. H. (2022). Ambient noise monitoring during pure-tone audiometry. *Journal of the American Academy of Audiology*, *33*(1), 45–56. <https://doi.org/10.1055/s-0041-1735803>

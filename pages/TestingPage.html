@@ -37,14 +37,24 @@
             <span class="ambient-details-hint">Details &amp; setup</span>
         </summary>
         <div class="ambient-content">
+            <fieldset class="transducer-choice">
+                <legend>Transducer</legend>
+                <label><input type="radio" name="transducerType" id="transducer-headphones" value="headphones" checked>
+                    Supra-/circumaural headphones (Sennheiser HD 280 Pro recommended)</label>
+                <label><input type="radio" name="transducerType" id="transducer-earbuds" value="earbuds">
+                    Bluetooth earbuds (Apple AirPods recommended)</label>
+            </fieldset>
+            <p>The transducer choice sets the dB HL to dB SPL conversion. Earbud values were measured for wired Apple
+                EarPods and are an approximation for AirPods. For earbuds, turn off noise cancellation, transparency,
+                Conversation Awareness, Headphone Accommodations and volume limits during calibration and screening.</p>
             <p>Optional. Calibrate once per sitting: the result is kept on this device for 4 hours and reused for
-                later screenings with the same device, headphones (Sennheiser HD 280 Pro recommended) and volume setting.
-                Do not change the device volume after calibrating. Without calibration, tone levels rely on an
-                unverified assumption about the device output.</p>
+                later screenings with the same device, transducer and volume setting. Changing the transducer requires
+                a new calibration. Do not change the device volume after calibrating. Without calibration, tone levels
+                rely on an unverified assumption about the device output.</p>
             <h3>Option 1: coupler or sound level meter</h3>
-            <p>Place an HD 280 Pro earcup on the coupler (flat-plate adapter) and select <strong>Play coupler tone</strong>
-                (a steady 1000 Hz tone in both earcups). Adjust the device volume until the meter reads 75 dB SPL, check the
-                other earcup, then select <strong>Save</strong>.</p>
+            <p>Place one earcup (HD 280 Pro: flat-plate adapter) or earbud on a coupler matching the transducer's RETSPL
+                reference and select <strong>Play coupler tone</strong> (a steady 1000 Hz tone in both sides). Adjust the device
+                volume until the meter reads 75 dB SPL, check the other side, then select <strong>Save</strong>.</p>
             <button id="couplerPlay" type="button">Play coupler tone</button>
             <button id="couplerSave" type="button" disabled>Save</button>
             <h3>Option 2: perceptual calibration (no meter)</h3>
@@ -79,7 +89,8 @@
             <p>Green means all four estimated octave-band levels are at or below their reference limits;
                 red means at least one exceeds its limit. Grey means monitoring is off or no usable estimate is available.
                 Limits are 47, 44, 54, and 59 dB SPL at 500, 1000, 2000, and 4000 Hz
-                (OSHA-based limits adjusted for Sennheiser HD 280 Pro headphones).</p>
+                (OSHA-based limits adjusted for Sennheiser HD 280 Pro headphones). Earbuds without noise cancellation
+                block much less room noise, so these limits are too lenient for them.</p>
             <p>Audio is processed locally and is not saved or uploaded. This optional indicator does not pause the hearing screener.</p>
             <button id="ambientCalibrate" type="button" disabled>Read sentence &amp; set reference</button>
             <button id="ambientStop" type="button" disabled>Stop microphone</button>

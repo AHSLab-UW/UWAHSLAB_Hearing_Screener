@@ -6,6 +6,8 @@ records trial-by-trial Yes/No responses, and estimates a Hearing Number and
 frequency-specific thresholds using a PCA-informed psychometric model that
 makes the results robust to occasional lapses of attention.
 
+**Try it online:** <https://faculty.washington.edu/shenyi/AHSLAB_Hearing_Screener/>
+
 This tool is intended only for adults aged 18 or older. Participants under 18
 cannot continue past the age-entry page; they should seek age-appropriate
 hearing screening from a hearing care professional. Age must be entered in
@@ -347,6 +349,11 @@ the reported thresholds, and genuine atypical profiles may also be smoothed.
 The application keeps answers and test results in browser `sessionStorage`.
 They are used to move data between pages during a session and are cleared when
 the session ends or the browser clears site data.
+
+## License
+
+Released under the [MIT License](LICENSE). This is a research and wellness
+screening tool, not a medical device. It does not provide a diagnosis.
 
 ## References
 

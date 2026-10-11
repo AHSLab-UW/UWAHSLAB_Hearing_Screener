@@ -34,7 +34,7 @@ test("FFT bins are assigned to octave bands and normalized to waveform energy", 
 
 test("levels use the 62.5 dBA voice reference and preserve specified warning boundaries", () => {
     const context = loadContext();
-    for (const limit of [40, 47, 57]) {
+    for (const limit of [44, 47, 54, 59]) {
         const powerAtLimit = 10 ** ((limit - 62.5) / 10);
         const level = context.estimatedBandLevels([powerAtLimit], 1)[0];
         assert.ok(Math.abs(level - limit) < 1e-10);

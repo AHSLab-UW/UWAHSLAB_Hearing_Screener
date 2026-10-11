@@ -92,6 +92,8 @@ test("test start blocks direct access by an underage participant before audio re
         resume() { throw new Error("Audio must not resume for an ineligible participant"); }
     };
     context.document.querySelectorAll = () => [];
+    context.document.getElementById = () => null;
+    loadScript(context, "perceptualCalibration.js");
     loadScript(context, "playAudio.js");
     await handlers["#enableMessage"]();
     assert.equal(context.window.location.href, "../pages/SurveyPage.html");

@@ -61,6 +61,30 @@ function getAllTrials(testmode) {
     ];
 }
 
+function levelCalibrationCSV() {
+    let csv = "--- LEVEL CALIBRATION ---\n";
+    let record = null;
+    try {
+        record = JSON.parse(sessionStorage.getItem("levelCalibrationUsed") || "null");
+    } catch {}
+    if (!record || record.method === "none") {
+        return csv + "Method,Not calibrated; levels assume 0.1 digital amplitude = 93.5 dB SPL (unverified)\n\n";
+    }
+    csv += `Method,${record.method === "coupler" ? "Coupler / sound level meter" : "Perceptual most comfortable level (MCL)"}\n`;
+    csv += `Reference tone (Hz),${record.frequencyHz}\n`;
+    csv += `Reference tone level assumed (dB SPL),${record.targetDbSPL}\n`;
+    csv += `Digital gain offset (dB),${record.gainOffsetDB}\n`;
+    if (record.method === "perceptual") {
+        csv += `MCL settings (dB re reference; direction:start->setting),${record.runs.map(run => `${run.direction}:${run.startDB}->${run.settingDB}`).join(" ")}\n`;
+        csv += `MCL setting SD (dB),${record.settingSDDB}\n`;
+        csv += `Ascending minus descending (dB),${record.ascendingMinusDescendingDB}\n`;
+        csv += `Settings consistent (range <= 12 dB),${record.consistent ? "Yes" : "No"}\n`;
+    }
+    csv += `Completed at,${record.completedAt}\n`;
+    csv += "Note,Assumes the device volume was not changed after calibration\n\n";
+    return csv;
+}
+
 function ambientNoiseCSV() {
     const storedAverage = sessionStorage.getItem("ambientNoiseTestAverage");
     const noise = storedAverage ? JSON.parse(storedAverage) : null;
@@ -118,6 +142,7 @@ function generateCSV() {
         csvContent += "PCA + Psychometric model,Not available\n\n";
     }
 
+    csvContent += levelCalibrationCSV();
     csvContent += ambientNoiseCSV();
     csvContent += "--- RAW TRIAL-BY-TRIAL LOG ---\n";
     csvContent += "Ear,Frequency (Hz),Level (dB HL),Response (Yes/No)\n";

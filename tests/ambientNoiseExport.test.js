@@ -24,13 +24,13 @@ test("CSV exports average band levels, coverage, and raw responses", () => {
         testDurationSeconds: 100, sampledSeconds: 50, sampleCount: 200,
         processingUncertain: true,
         bands: [500, 1000, 2000, 4000].map((frequency, index) => ({
-            frequency, averageDbSPL: 30 + index, limit: [40, 40, 47, 57][index]
+            frequency, averageDbSPL: 30 + index, limit: [47, 44, 54, 59][index]
         }))
     });
     const csv = context.generateCSV();
     assert.match(csv, /Monitoring coverage \(%\),50\.0/);
-    assert.match(csv, /500,30\.0,40/);
-    assert.match(csv, /4000,33\.0,57/);
+    assert.match(csv, /500,30\.0,47/);
+    assert.match(csv, /4000,33\.0,59/);
     assert.match(csv, /Microphone processing uncertain,Yes/);
     assert.match(csv, /not calibrated SPL/);
     assert.match(csv, /both,1000,20,yes/);

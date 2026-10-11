@@ -151,6 +151,24 @@ h6 {
     background-color: #ff7373;
 }
 
+.level-calibration .calibration-set .ambient-indicator {
+    background-color: #70d994;
+}
+
+.level-calibration .calibration-variable .ambient-indicator {
+    background-color: #efc563;
+}
+
+.level-calibration h3 {
+    font-size: 1.1rem;
+    margin: 1rem 0 0.25rem;
+}
+
+.ambient-monitor button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .ambient-details-hint {
     display: inline-block;
     margin-left: 0.75rem;

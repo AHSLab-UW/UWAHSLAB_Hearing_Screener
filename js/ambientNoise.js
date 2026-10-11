@@ -1,8 +1,10 @@
+// OSHA-based octave-band MPANLs extended for the Sennheiser HD 280 Pro
+// (Margolis, Saly & Wilson, 2022, J Am Acad Audiol 33(1):45-56, Table 1).
 const AMBIENT_BANDS = [
-    { frequency: 500, limit: 40 },
-    { frequency: 1000, limit: 40 },
-    { frequency: 2000, limit: 47 },
-    { frequency: 4000, limit: 57 }
+    { frequency: 500, limit: 47 },
+    { frequency: 1000, limit: 44 },
+    { frequency: 2000, limit: 54 },
+    { frequency: 4000, limit: 59 }
 ];
 const VOICE_REFERENCE_DBA = 62.5;
 

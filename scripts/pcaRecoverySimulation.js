@@ -1,10 +1,13 @@
 // Ground-truth recovery simulations for the PCA + psychometric fit.
 // Usage: node scripts/pcaRecoverySimulation.js [report.json] [repetitions] [experiments]
-//   experiments: comma-separated subset of "calibration,lapse" (default: both).
+//   experiments: comma-separated subset of "calibration,lapse,mcl" (default: calibration,lapse).
 // Experiment "calibration": a frequency-independent output attenuation (dB) is applied to every
 //   stimulus of a simulated test, i.e. the listener hears levelHL - attenuation.
 // Experiment "lapse": on a proportion of trials the listener ignores the tone and answers
 //   Yes/No at random (50/50).
+// Experiment "mcl": per-test offset from the perceptual MCL calibration. The listener's MCL
+//   deviates from the assumed 75 dB SPL by e = mclSlope * max(0, betterEarPTA - mclKnee) + mclSD * z,
+//   z ~ N(0, 1); every stimulus is then e dB louder than intended (attenuationDB = -e).
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -19,6 +22,9 @@ const repetitions = Number(process.argv[3] || 1);
 const selectedExperiments = (process.argv[4] || "calibration,lapse").split(",");
 const attenuationsDB = [-20, -10, 0, 10, 20, 30];
 const lapseRates = [0, 0.05, 0.1, 0.2, 0.3, 0.5];
+const mclSDs = [0, 4, 8, 12];
+const mclSlope = 0.2;
+const mclKnee = 20;
 const slopeDB = 5;
 
 // Load the model outside vm: vm global lookups make the grid fit ~25x slower.
@@ -39,6 +45,13 @@ function randomGenerator(seed) {
     };
 }
 
+// Standard normal draw from a stream independent of the response stream.
+function gaussian(seed) {
+    const random = randomGenerator((seed * 7919 + 104729) >>> 0);
+    random();
+    return Math.sqrt(-2 * Math.log(1 - random())) * Math.cos(2 * Math.PI * random());
+}
+
 function createStaircase(age, sex, mode) {
     const stored = new Map([["userAge", String(age)], ["userSex", sex], ["testmode", mode]]);
     const context = vm.createContext({
@@ -55,7 +68,7 @@ function createStaircase(age, sex, mode) {
         window: { location: {} },
         runPCA: () => null
     });
-    for (const file of ["ageEligibility.js", "playAudio.js"]) {
+    for (const file of ["ageEligibility.js", "perceptualCalibration.js", "playAudio.js"]) {
         vm.runInContext(fs.readFileSync(path.join(root, "js", file), "utf8"), context);
     }
     vm.runInContext("playTestTone = () => {};", context);
@@ -131,7 +144,8 @@ function metrics(estimated, truth, mode) {
         mae: average(errors.map(Math.abs)),
         bias: average(errors),
         within5: average(errors.map(error => Math.abs(error) <= 5 ? 1 : 0)),
-        hearingNumberError
+        hearingNumberError,
+        squaredError: average(errors.map(error => error ** 2))
     };
 }
 
@@ -143,9 +157,15 @@ const profiles = [
 ];
 
 function evaluate(age, sex, mode, profile, seed, perturbation) {
+    let mclOffsetDB;
+    if (perturbation.mclSD !== undefined) {
+        const [right, left] = profile.truth.map(ear => average(ear));
+        mclOffsetDB = mclSlope * Math.max(0, Math.min(right, left) - mclKnee) + perturbation.mclSD * gaussian(seed);
+        perturbation = { attenuationDB: -mclOffsetDB };
+    }
     const { trials, rawStaircase } = simulateTrials(age, sex, mode, profile.truth, randomGenerator(seed), perturbation);
     const truth = profile.truth.flat();
-    const run = { mode, age, sex, profile: profile.name, seed, trialCount: trials.length, methods: {} };
+    const run = { mode, age, sex, profile: profile.name, seed, trialCount: trials.length, mclOffsetDB, methods: {} };
     run.methods.rawStaircase = { ...metrics(rawStaircase, truth, mode), excludedFraction: 0 };
     run.methods.unpooledControl = { ...metrics(unpooledFit(trials, mode), truth, mode), excludedFraction: 0 };
     for (const [name, options] of Object.entries(methods)) {
@@ -164,6 +184,7 @@ function summarize(selected) {
         const values = selected.map(run => run.methods[name]);
         return [name, {
             maeDB: round(average(values.map(v => v.mae))),
+            rmseDB: round(Math.sqrt(average(values.map(v => v.squaredError)))),
             biasDB: round(average(values.map(v => v.bias))),
             within5Percent: round(100 * average(values.map(v => v.within5))),
             hearingNumberErrorDB: round(average(values.map(v => v.hearingNumberError))),
@@ -195,12 +216,13 @@ function biasSlopes(byLevel) {
 
 const experiments = {
     calibration: { parameter: "attenuationDB", levels: attenuationsDB },
-    lapse: { parameter: "lapseRate", levels: lapseRates }
+    lapse: { parameter: "lapseRate", levels: lapseRates },
+    mcl: { parameter: "mclSD", levels: mclSDs }
 };
 
 const report = {
     methodology: {
-        ages, sexes, modes, repetitions, slopeDB, firstSeed: 20261010,
+        ages, sexes, modes, repetitions, slopeDB, firstSeed: 20261010, mclSlope, mclKnee,
         profiles: profiles.map(profile => profile.name),
         scaledScoreSD: methods.scaledPrior.scoreSD,
         note: "Executes the app staircase (playAudio.js) and fitPCAPsychometric. Errors are against the true (unattenuated) thresholds. The same random seeds are reused at every level of an experiment (common random numbers). Both-ears mode is scored on better-ear thresholds only. rawStaircase is the app's unmodelled last-Yes level; unpooledControl is a per-frequency logistic fit without PCA."

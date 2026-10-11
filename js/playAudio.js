@@ -1,8 +1,8 @@
 let audioCtxt = new AudioContext();
 
-const referenceDB = 93.5;// requirements that the volume of the device is set to the max.
-const referenceAMP = 0.1;
-const dbHLMeans = [7,5.2,12.4,12]; 
+// RETSPLs (dB SPL at 0 dB HL) for the recommended Sennheiser HD 280 Pro, IEC 60318 coupler
+// with flat-plate adapter (Smull, Madsen & Margolis, 2019, Ear Hear 40(1):177-183).
+const RETSPL_HD280_PRO = { 500: 6.8, 1000: 1.4, 2000: 1.9, 4000: 2.2 };
 
 let gain = audioCtxt.createGain();;
 let panner = audioCtxt.createStereoPanner();  ;
@@ -12,6 +12,7 @@ panner.connect(audioCtxt.destination);
 let nodes;
 let testConfig;
 let currentTest;
+let testGainOffsetDB = 0;
 
 const state = {
     testMode: sessionStorage.getItem("testmode"), //single or both
@@ -35,6 +36,9 @@ enable.addEventListener("click", async ()=>{
         window.location.href = "../pages/SurveyPage.html";
         return;
     }
+    const calibration = window.levelCalibration ? window.levelCalibration.beginTest() : storedLevelCalibration();
+    testGainOffsetDB = calibration ? calibration.gainOffsetDB : 0;
+    sessionStorage.setItem(LEVEL_CALIBRATION_USED_KEY, JSON.stringify(calibration || { method: "none" }));
     await audioCtxt.resume();
     const now = new Date();
     sessionStorage.setItem("startTime",now.toLocaleString());
@@ -80,9 +84,10 @@ function playTestTone(frequency, dbHL, whichEar, needVisual) {
     audioCtxt.resume(); 
     let oscillator = audioCtxt.createOscillator();;
     oscillator.frequency.value = frequency;
-    let dbSPL = dbHL + dbHLMeans[state.freqIndex];
+    let dbSPL = dbHL + RETSPL_HD280_PRO[frequency];
     console.log(state.freqIndex);
-    let volume = referenceAMP * calibrate(dbSPL);
+    // Levels are relative to the optional level calibration (perceptualCalibration.js).
+    let volume = splToAmplitude(dbSPL, testGainOffsetDB);
 
     gain.gain.setValueAtTime(volume, audioCtxt.currentTime,0.01);
     panner.pan.setValueAtTime(whichEar, audioCtxt.currentTime, 0.01);
@@ -223,11 +228,6 @@ function finishTest() {
     window.location.href = "../pages/resultsPage.html";
 }
 
-
-function calibrate (audioLevel){
-    let gain = Math.pow(10, (audioLevel-referenceDB)/20);
-    return gain; 
-}
 
 function getPanValue() {
     if (state.testMode == "both") return 0;

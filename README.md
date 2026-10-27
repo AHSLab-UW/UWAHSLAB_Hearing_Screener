@@ -209,6 +209,33 @@ Rather than fitting those bases to the test's threshold-crossing summaries,
 the application fits them to the original trial-by-trial stimuli and Yes/No
 responses.
 
+**Training data and provenance.** The mean and loadings in `js/pca.js` come
+from an unscaled PCA model trained on NHANES 2011–2012 data. The training data
+join the audiometry file (`AUX_G.xpt`) with the demographics file
+(`DEMO_G.xpt`) on `SEQN`, then use age, sex, and the eight 500–4000 Hz
+right- and left-ear thresholds. See the CDC's
+[NHANES 2011–2012 AUX_G documentation](https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2011/DataFiles/AUX_G.htm#Eligible_Sample).
+The model uses the 2011–2012 `AUX_G` cycle, rather than the 2015–2016 `AUX_I`
+cycle.
+
+NHANES 2011–2012 examined 9,338 participants overall; the PCA training data
+are the approximately 3,860 records with complete values for all ten model
+variables (age, sex, and eight thresholds). The audiometry component was open
+to adults aged 20–69, of all sexes and racial/ethnic backgrounds, in NHANES's
+nationally representative U.S. civilian, noninstitutionalized population. A
+trained examiner tested both ears in a sound-isolating room at a mobile
+examination center, measuring thresholds at seven frequencies with a modified
+Hughson–Westlake procedure, primarily using automated audiometry. The PCA uses
+only the 500, 1000, 2000, and 4000 Hz measurements. See also the
+[NHANES 2011–2012 audiometry procedures manual](https://wwwn.cdc.gov/nchs/data/nhanes/public/2011/manuals/audiometry_procedures_manual.pdf).
+
+The number of principal components to retain was selected using 10-fold
+cross-validation: candidate component counts were compared by their
+out-of-fold reconstruction performance, with three components selected.
+After selection, PCA was refit on the complete dataset using those three
+components. The resulting full-data mean and loading vectors provide the
+weights used by the screener.
+
 [`runPCA`](js/pca.js) reads the trial log, age, sex, and test mode from
 `sessionStorage`. For each candidate set of three latent PCA scores, it
 reconstructs the full 10-variable profile: age, sex, four right-ear

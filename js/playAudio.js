@@ -11,6 +11,10 @@ let testConfig;
 let currentTest;
 let testGainOffsetDB = 0;
 let testTransducer = DEFAULT_TRANSDUCER;
+const TONE_PULSE_COUNT = 3;
+const TONE_PULSE_DURATION_SECONDS = 0.2;
+const TONE_PULSE_GAP_SECONDS = 0.2;
+const TONE_PULSE_RAMP_SECONDS = 0.035;
 
 const state = {
     testMode: sessionStorage.getItem("testmode"), //single or both
@@ -90,12 +94,20 @@ function playTestTone(frequency, dbHL, whichEar, needVisual) {
     // Levels are relative to the optional level calibration (perceptualCalibration.js).
     let volume = splToAmplitude(dbSPL, testGainOffsetDB);
 
-    gain.gain.setValueAtTime(volume, audioCtxt.currentTime,0.01);
-    panner.pan.setValueAtTime(whichEar, audioCtxt.currentTime, 0.01);
-
     oscillator.connect(gain);
     const startTime = audioCtxt.currentTime + 3;
-    const endTime = startTime+1;
+    const endTime = startTime + TONE_PULSE_COUNT * TONE_PULSE_DURATION_SECONDS +
+        (TONE_PULSE_COUNT - 1) * TONE_PULSE_GAP_SECONDS;
+
+    for (let pulse = 0; pulse < TONE_PULSE_COUNT; pulse++) {
+        const pulseStart = startTime + pulse * (TONE_PULSE_DURATION_SECONDS + TONE_PULSE_GAP_SECONDS);
+        const pulseEnd = pulseStart + TONE_PULSE_DURATION_SECONDS;
+        gain.gain.setValueAtTime(0, pulseStart);
+        gain.gain.linearRampToValueAtTime(volume, pulseStart + TONE_PULSE_RAMP_SECONDS);
+        gain.gain.setValueAtTime(volume, pulseEnd - TONE_PULSE_RAMP_SECONDS);
+        gain.gain.linearRampToValueAtTime(0, pulseEnd);
+    }
+    panner.pan.setValueAtTime(whichEar, startTime);
 
     oscillator.start(startTime);
     oscillator.stop(endTime);

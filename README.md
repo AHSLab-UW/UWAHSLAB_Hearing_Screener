@@ -28,6 +28,15 @@ playback, use headphones in a quiet environment, and follow the on-screen
 instructions. The screener asks for age and sex, then guides the participant
 through the hearing screening and displays results.
 
+Each test tone is presented as three 200 ms pulses, measured from onset to
+offset, with 35 ms rise and fall ramps and 200 ms silent intervals. The smooth
+ramps avoid abrupt amplitude switching; pulsed tones are consistent with
+manual pure-tone audiometry guidance. In a comparison study, pulsed and
+continuous tones produced comparable thresholds and test–retest reliability,
+and listeners preferred pulsed tones for low-level or high-frequency tones
+(ASHA, 1978; Burk & Wiley, 2004). This applies only to screening stimuli;
+the optional level-calibration reference tone remains continuous.
+
 ## Transducers and level calibration
 
 The **Level calibration** panel on the screening page has a transducer switch
@@ -385,7 +394,9 @@ screening tool, not a medical device. It does not provide a diagnosis.
 ## References
 
 - Al-Salim, S. C., Kopun, J. G., Neely, S. T., Jesteadt, W., Stiegemann, B., & Gorga, M. P. (2010). Reliability of categorical loudness scaling and its relation to threshold. *Ear and Hearing*, *31*(4), 567–578. <https://doi.org/10.1097/AUD.0b013e3181da4d15>
+- American Speech-Language-Hearing Association. (1978). Guidelines for manual pure-tone audiometry. *Asha*, *20*, 279–301.
 - Berger, K. W., Harrison, L. D., Monack, N., & Ferren, G. E. (1980). Comfortable loudness judgments for discrete frequency signals. *Journal of Auditory Research*, *20*(2), 119–127. PMID 7345058.
+- Burk, M. H., & Wiley, T. L. (2004). Continuous versus pulsed tones in audiometry. *American Journal of Audiology*, *13*(1), 54–61. <https://doi.org/10.1044/1059-0889(2004/008)>
 - Dirks, D. D., & Kamm, C. (1976). Psychometric functions for loudness discomfort and most comfortable loudness levels. *Journal of Speech and Hearing Research*, *19*(4), 613–627. <https://doi.org/10.1044/jshr.1904.613>
 - Hawley, M. L., Sherlock, L. P., & Formby, C. (2017). Intra- and intersubject variability in audiometric measures and loudness judgments in older listeners with normal hearing. *Seminars in Hearing*, *38*(1), 3–25. <https://doi.org/10.1055/s-0037-1598063>
 - Ho, C.-Y., Li, P.-C., & Young, S.-T. (2017). Reference equivalent threshold sound pressure levels for Apple EarPods. *The Journal of the Acoustical Society of America*, *141*(2), EL115–EL119. <https://doi.org/10.1121/1.4976110>

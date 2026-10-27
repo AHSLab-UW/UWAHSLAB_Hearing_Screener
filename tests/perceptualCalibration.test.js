@@ -27,14 +27,37 @@ function memoryStorage(initial = []) {
 }
 
 class FakeAudioContext {
-    constructor() { this.currentTime = 0; this.destination = {}; FakeAudioContext.instances.push(this); this.tones = []; this.levels = []; }
+    constructor() {
+        this.currentTime = 0;
+        this.destination = {};
+        FakeAudioContext.instances.push(this);
+        this.tones = [];
+        this.levels = [];
+        this.gainEvents = [];
+    }
     async resume() {}
     createOscillator() {
-        const oscillator = { frequency: {}, connect() {}, start: () => this.tones.push(oscillator), stop() { oscillator.stopped = true; } };
+        const oscillator = {
+            frequency: {},
+            connect() {},
+            start: (...args) => { oscillator.startArgs = args; this.tones.push(oscillator); },
+            stop: (...args) => { oscillator.stopped = true; oscillator.stopArgs = args; }
+        };
         return oscillator;
     }
     createGain() {
-        return { gain: { setValueAtTime() {}, setTargetAtTime: value => this.levels.push(value) }, connect() {} };
+        return {
+            gain: {
+                setValueAtTime: (value, time) => this.gainEvents.push({ type: "set", value, time }),
+                setTargetAtTime: (value, time, constant) => {
+                    this.levels.push(value);
+                    this.gainEvents.push({ type: "target", value, time, constant });
+                },
+                linearRampToValueAtTime: (value, time) =>
+                    this.gainEvents.push({ type: "ramp", value, time })
+            },
+            connect() {}
+        };
     }
 }
 FakeAudioContext.instances = [];
@@ -68,10 +91,14 @@ test("coupler calibration plays the reference tone and stores a zero-offset reco
     await click("couplerPlay");
     const audio = FakeAudioContext.instances[0];
     assert.equal(audio.tones[0].frequency.value, 1000);
+    assert.deepEqual(audio.tones[0].startArgs, []);
+    assert.deepEqual(audio.gainEvents.map(event => event.type), ["set", "target"]);
+    assert.equal(audio.tones[0].stopped, undefined);
     assert.ok(Math.abs(audio.levels.at(-1) - vm.runInContext("CALIBRATION_AMPLITUDE", context)) < 1e-15);
     assert.equal(elements.couplerSave.disabled, false);
     await click("couplerSave");
     assert.equal(audio.tones[0].stopped, true);
+    assert.deepEqual(audio.tones[0].stopArgs, [0.05]);
     const record = JSON.parse(storage.map.get("levelCalibration"));
     assert.equal(record.method, "coupler");
     assert.equal(record.gainOffsetDB, 0);
@@ -137,6 +164,7 @@ function screeningContext(local) {
     const handlers = {};
     const stored = new Map([["userAge", "45"], ["userSex", "female"], ["testmode", "single"]]);
     const levels = [];
+    const gainEvents = [];
     const context = vm.createContext({
         console: { log() {} },
         alert() {},
@@ -144,7 +172,21 @@ function screeningContext(local) {
         localStorage: local,
         AudioContext: class {
             constructor() { this.currentTime = 0; }
-            createGain() { return { connect() {}, gain: { setValueAtTime: value => levels.push(value) } }; }
+            createGain() {
+                return {
+                    connect() {},
+                    gain: {
+                        setValueAtTime(value, time) {
+                            levels.push(value);
+                            gainEvents.push({ type: "set", value, time });
+                        },
+                        linearRampToValueAtTime(value, time) {
+                            levels.push(value);
+                            gainEvents.push({ type: "ramp", value, time });
+                        }
+                    }
+                };
+            }
             createStereoPanner() { return { connect() {}, pan: { setValueAtTime() {} } }; }
             createOscillator() { return { frequency: {}, connect() {}, start() {}, stop() {} }; }
             async resume() {}
@@ -157,7 +199,7 @@ function screeningContext(local) {
         window: { location: {} }
     });
     for (const file of ["ageEligibility.js", "perceptualCalibration.js", "playAudio.js"]) load(context, file);
-    return { context, handlers, stored, levels };
+    return { context, handlers, stored, levels, gainEvents };
 }
 
 test("transducer switch selects RETSPLs and calibrations only apply to the transducer they were made with", async () => {
@@ -199,7 +241,7 @@ test("screening with earbuds selected uses the earbud RETSPLs", async () => {
     assert.equal(stored.get("transducerUsed"), "earbuds");
     context.playTestTone(4000, 30, 0, false);
     const expected = 0.1 * 10 ** ((30 + 6.7 - 93.5) / 20);
-    assert.ok(Math.abs(levels.at(-1) / expected - 1) < 1e-12);
+    assert.ok(Math.abs(Math.max(...levels) / expected - 1) < 1e-12);
 });
 
 test("screening applies the stored calibration offset to test tones", async () => {
@@ -212,7 +254,26 @@ test("screening applies the stored calibration offset to test tones", async () =
     assert.equal(JSON.parse(stored.get("levelCalibrationUsed")).gainOffsetDB, -8);
     context.playTestTone(1000, 40, 0, false);
     const expected = 0.1 * 10 ** ((40 + 1.4 - 93.5 - 8) / 20);
-    assert.ok(Math.abs(levels.at(-1) / expected - 1) < 1e-12);
+    assert.ok(Math.abs(Math.max(...levels) / expected - 1) < 1e-12);
+});
+
+test("test tone uses three 200 ms pulses with 35 ms rise and fall ramps", async () => {
+    const { context, gainEvents } = screeningContext(memoryStorage());
+    context.playTestTone(1000, 40, 0, false);
+
+    const expectedTypes = [
+        "set", "ramp", "set", "ramp",
+        "set", "ramp", "set", "ramp",
+        "set", "ramp", "set", "ramp"
+    ];
+    const expectedTimes = [0, 0.035, 0.165, 0.2, 0.4, 0.435, 0.565, 0.6, 0.8, 0.835, 0.965, 1];
+    assert.deepEqual(gainEvents.map(event => event.type), expectedTypes);
+    gainEvents.forEach((event, index) => {
+        assert.ok(Math.abs(event.time - 3 - expectedTimes[index]) < 1e-9);
+    });
+    const volume = 0.1 * 10 ** ((40 + 1.4 - 93.5) / 20);
+    assert.ok(Math.abs(Math.max(...gainEvents.map(event => event.value)) / volume - 1) < 1e-12);
+    assert.deepEqual(gainEvents.filter(event => event.type === "ramp" && event.value === 0).length, 3);
 });
 
 test("start page goes directly to the screening page; calibration is an opt-in panel there", () => {

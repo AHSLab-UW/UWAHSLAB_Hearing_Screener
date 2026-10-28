@@ -228,8 +228,8 @@ The model uses the 2011–2012 `AUX_G` cycle, rather than the 2015–2016 `AUX_I
 cycle.
 
 NHANES 2011–2012 examined 9,338 participants overall; the PCA training data
-are the approximately 3,860 records with complete values for all ten model
-variables (age, sex, and eight thresholds). The audiometry component was open
+are the 3,857 records (ages 20–69; 1,969 male, 1,888 female) with complete
+values for all ten model variables (age, sex, and eight thresholds). The audiometry component was open
 to adults aged 20–69, of all sexes and racial/ethnic backgrounds, in NHANES's
 nationally representative U.S. civilian, noninstitutionalized population. A
 trained examiner tested both ears in a sound-isolating room at a mobile
@@ -260,10 +260,15 @@ The posterior over PCA scores is updated from all retained responses using
 independent normal score priors centered on the participant's age and sex
 projected through the corresponding trained PCA loadings. Because the trained
 loading columns have unit length, the scores are in dB-like units, and each
-prior SD must be the component's √eigenvalue, not 1. The current SDs
-(`PCA_SCORE_SD = [24, 12, 10]`) are **provisional** estimates. They imply adult
-threshold SDs of about 10–13 dB and should be replaced with
-`sqrt(explained_variance_)` from the NHANES training run. In the trained
+prior SD must be the component's score SD, not 1. The SDs
+(`PCA_SCORE_SD = [30.4, 11.7, 16.3]`) were estimated by projecting the NHANES
+training records through the deployed mean and loadings and taking the SD of
+each component score. The 26 complete-case records containing NHANES
+non-response threshold codes (666 or 888), which the complete-case filter does
+not remove, were excluded from this estimate (N = 3,831). Including them
+inflates the √eigenvalues to about [152, 42, 35], which would make the priors
+nearly flat. The deployed mean and loadings come from the fit that includes
+these records. In the trained
 model, the age and sex loadings are very small (about 0.014 score units per
 year), so the prior shifts by less than 1 dB HL across the adult age range.
 In both-ears mode, a Yes response is modeled as hearing the tone in either ear:
@@ -307,28 +312,28 @@ Single-ear mean absolute error (dB, 56 simulated tests per level):
 
 | Lapse rate | Raw staircase | Unpooled | Scaled PCA (current) |
 |------------|---------------|----------|----------------------|
-| 0% | 8.7 | 5.8 | 5.4 |
-| 5% | 10.4 | 7.0 | 5.5 |
-| 10% | 11.5 | 8.2 | 5.7 |
-| 20% | 14.9 | 11.2 | 6.7 |
-| 30% | 17.7 | 13.3 | 7.3 |
-| 50% | 22.7 | 18.6 | 11.0 |
+| 0% | 8.7 | 5.8 | 5.1 |
+| 5% | 10.4 | 7.0 | 5.2 |
+| 10% | 11.5 | 8.2 | 5.3 |
+| 20% | 14.9 | 11.2 | 6.3 |
+| 30% | 17.7 | 13.3 | 7.1 |
+| 50% | 22.7 | 18.6 | 11.2 |
 
 | Attenuation | Raw staircase | Unpooled | Scaled PCA (current) |
 |-------------|---------------|----------|----------------------|
-| −20 dB | 10.4 | 18.0 | 20.3 |
-| −10 dB | 5.1 | 10.1 | 12.0 |
-| 0 dB | 8.7 | 5.8 | 5.4 |
-| +10 dB | 17.7 | 10.6 | 7.5 |
-| +20 dB | 27.3 | 20.3 | 15.4 |
-| +30 dB | 36.6 | 30.1 | 23.3 |
+| −20 dB | 10.4 | 18.0 | 20.4 |
+| −10 dB | 5.1 | 10.1 | 11.8 |
+| 0 dB | 8.7 | 5.8 | 5.1 |
+| +10 dB | 17.7 | 10.6 | 8.2 |
+| +20 dB | 27.3 | 20.3 | 17.4 |
+| +30 dB | 36.6 | 30.1 | 26.2 |
 
 | MCL offset SD σ | Raw staircase | Unpooled | Scaled PCA (current) |
 |-----------------|---------------|----------|----------------------|
-| 0 dB (hearing-loss term only) | 7.5 | 6.1 | 7.0 |
-| 4 dB | 8.0 | 7.0 | 7.4 |
-| 8 dB | 9.5 | 8.8 | 8.8 |
-| 12 dB | 11.5 | 11.3 | 11.5 |
+| 0 dB (hearing-loss term only) | 7.5 | 6.1 | 6.6 |
+| 4 dB | 8.0 | 7.0 | 6.9 |
+| 8 dB | 9.5 | 8.8 | 8.6 |
+| 12 dB | 11.5 | 11.3 | 11.4 |
 
 Interpretation:
 
@@ -339,8 +344,8 @@ Interpretation:
   information across frequencies and ears.
 - **Calibration (interaction only):** the PCA fit does not remove
   calibration errors, and it is not intended to. The mean
-  bias rises 0.88 dB per dB of attenuation (0.83 in both-ears mode),
-  compared with ~0.95 for the baselines. The first trained component loads
+  bias rises 0.94 dB per dB of attenuation (0.89 in both-ears mode),
+  compared with ~0.93–0.99 for the baselines. The first trained component loads
   positively on all eight thresholds, so a uniform calibration offset looks
   exactly like a real flat change in hearing. No response-based model can
   separate the two without an external level reference. The slightly lower
@@ -352,7 +357,7 @@ Interpretation:
   ~8 dB, the perceptual-calibration error dominates the result, and the PCA
   fit performs about the same as the unpooled fit. Calibration accuracy must
   come from the calibration procedure. Under the hearing-loss term
-  alone (σ = 0), the PCA fit has a −4.7 dB mean bias, because both the MCL
+  alone (σ = 0), the PCA fit has a −4.3 dB mean bias, because both the MCL
   shift and the population prior push large losses downward.
 
 Both-ears mode can identify only the better ear. The simulation assumes the

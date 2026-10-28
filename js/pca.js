@@ -13,10 +13,9 @@ const weights = [
 ];
 
 // The trained loading columns have unit L2 norm, so scores are in dB-like units and their
-// variance is the PCA eigenvalue, not 1. These SDs are provisional estimates chosen to imply
-// adult NHANES threshold SDs of about 10-13 dB; replace them with sqrt(explained_variance_)
-// from the NHANES training run when available.
-const PCA_SCORE_SD = [24, 12, 10];
+// variance is the PCA eigenvalue, not 1. SDs are of NHANES 2011-2012 training scores
+// (mean/weights above), excluding 26 records with 666/888 non-response threshold codes (N = 3,831).
+const PCA_SCORE_SD = [30.4, 11.7, 16.3];
 // Score grid in prior-SD units around the age/sex prior mean.
 const PCA_SCORE_RANGE_SD = 6;
 const PCA_SCORE_STEP_SD = 0.25;

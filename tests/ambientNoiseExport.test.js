@@ -4,12 +4,13 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { test } = require("node:test");
 
-function exportContext(noise) {
+function exportContext(noise, calibration = null) {
     const stored = new Map([
         ["testmode", "both"],
         ["bothResponses", JSON.stringify([{ ear: "both", frequency: 1000, levelHL: 20, response: "yes" }])]
     ]);
     if (noise) stored.set("ambientNoiseTestAverage", JSON.stringify(noise));
+    if (calibration) stored.set("levelCalibrationUsed", JSON.stringify(calibration));
     const context = vm.createContext({
         document: { addEventListener() {}, querySelector: () => ({ addEventListener() {} }) },
         window: {},
@@ -20,6 +21,41 @@ function exportContext(noise) {
     return context;
 }
 
+test("CSV reports Medium anchor and calibration summaries without individual tracks", () => {
+        const record = {
+            schemaVersion: 2, method: "perceptual", loudnessLabel: "Medium",
+            referenceListener: "normal-hearing", frequencyHz: 1000, targetDbSPL: 80,
+            gainOffsetDB: -6, settingCount: 4, settingSDDB: 1.6, settingRangeDB: 4,
+            ascendingMinusDescendingDB: -2, consistent: true,
+            completedAt: "2026-10-30T10:00:00Z", expiresAt: "2026-10-30T14:00:00Z"
+        };
+        const csv = exportContext(null, record).generateCSV();
+        assert.match(csv, /Method,Perceptual Medium \(normal-hearing reference listener\)/);
+        assert.match(csv, /Reference tone \(Hz\),1000/);
+        assert.match(csv, /Medium level assumed \(dB SPL\),80/);
+        assert.match(csv, /Digital gain offset \(dB\),-6/);
+        assert.match(csv, /Number of settings,4/);
+        assert.match(csv, /Setting SD \(dB\),1\.6/);
+        assert.match(csv, /Setting range \(dB\),4/);
+        assert.match(csv, /Settings consistent \(range <= 12 dB\),Yes/);
+        assert.match(csv, /Valid until,2026-10-30T14:00:00Z/);
+        assert.doesNotMatch(csv, /direction:start|->|undefined|NaN|MCL/);
+    });
+
+    test("CSV distinguishes physical calibration from assumed Medium and preserves historical MCL labels", () => {
+        const common = { frequencyHz: 1000, gainOffsetDB: 0,
+            completedAt: "2026-10-30T10:00:00Z", expiresAt: "2026-10-30T14:00:00Z" };
+        const coupler = exportContext(null, { ...common, method: "coupler", targetDbSPL: 80 }).generateCSV();
+        assert.match(coupler, /Method,Coupler \/ sound level meter/);
+        assert.match(coupler, /Reference tone level assumed \(dB SPL\),80/);
+        assert.doesNotMatch(coupler, /Medium level assumed/);
+        const legacy = exportContext(null, { ...common, method: "perceptual", targetDbSPL: 75,
+            runs: [], settingSDDB: 1, settingRangeDB: 2,
+            ascendingMinusDescendingDB: 0, consistent: true }).generateCSV();
+        assert.match(legacy, /MCL; legacy/);
+        assert.match(legacy, /Reference tone level assumed \(dB SPL\),75/);
+        assert.doesNotMatch(legacy, /Medium level assumed|direction:start/);
+    });
 test("CSV exports average band levels, coverage, and raw responses", () => {
     const context = exportContext({
         testDurationSeconds: 100, sampledSeconds: 50, sampleCount: 200,

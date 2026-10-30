@@ -51,22 +51,29 @@
                 later screenings with the same device, transducer and volume setting. Changing the transducer requires
                 a new calibration. Do not change the device volume after calibrating. Without calibration, tone levels
                 rely on an unverified assumption about the device output.</p>
-            <h3>Option 1: coupler or sound level meter</h3>
+            <h3>Option 1: physical SPL calibration (continuous 80 dB SPL reference)</h3>
             <p>Place one earcup (HD 280 Pro: flat-plate adapter) or earbud on a coupler matching the transducer's RETSPL
                 reference and select <strong>Play coupler tone</strong> (a steady 1000 Hz tone in both sides). Adjust the device
-                volume until the meter reads 75 dB SPL, check the other side, then select <strong>Save</strong>.</p>
+                volume until the meter reads <strong>80 dB SPL</strong>, check the other side, then select <strong>Save</strong>.
+                The output level is only nominal until verified with the meter.</p>
             <button id="couplerPlay" type="button">Play coupler tone</button>
             <button id="couplerSave" type="button" disabled>Save</button>
-            <h3>Option 2: perceptual calibration (no meter)</h3>
-            <p>Wear the headphones in a quiet room. First set the device volume so a steady tone is roughly comfortable.
+            <h3>Option 2: normal-hearing reference listener (no meter)</h3>
+            <p>A person with normal hearing should wear the headphones in a quiet room and calibrate once for
+                everyone screened in this sitting. Screened participants do not repeat this procedure.
+                First set the device volume so the steady 1000 Hz tone has roughly <strong>Medium</strong> loudness.
                 Then make four on-screen settings: the tone starts either too soft or too loud, and you select
-                <strong>Louder</strong> or <strong>Softer</strong> until it is at your <strong>most comfortable listening level</strong>,
-                neither soft nor loud. The starting level changes each time, so do not count button presses.</p>
+                <strong>Louder</strong> or <strong>Softer</strong> until its loudness is <strong>Medium</strong>,
+                neither soft nor loud, then select <strong>Medium</strong>. This is a loudness judgment, not a
+                most-comfortable-level judgment. The mean setting is assumed to be <strong>80 dB SPL</strong>;
+                actual output can differ substantially between reference listeners. Use physical SPL calibration
+                when possible. The starting level changes each time, so do not count button presses.
+                Cancel if the tone is uncomfortable.</p>
             <button id="mclStart" type="button">Start perceptual calibration</button>
             <button id="mclVolumeSet" type="button" disabled>Volume is set</button>
             <button id="mclSofter" type="button" disabled>Softer</button>
             <button id="mclLouder" type="button" disabled>Louder</button>
-            <button id="mclComfortable" type="button" disabled>Comfortable</button>
+            <button id="mclComfortable" type="button" disabled>Medium</button>
             <button id="mclCancel" type="button" disabled>Cancel</button>
             <p><button id="calibrationClear" type="button" disabled>Clear calibration</button></p>
             <p id="levelCalibrationStatus" role="status">No calibration is set.</p>

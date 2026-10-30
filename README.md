@@ -78,28 +78,37 @@ The screening page has a collapsible **Level calibration** bar next to the
 room-noise bar. Calibration is opt-in and is meant to be done once per
 sitting. The result is stored in the browser's `localStorage` for 4 hours
 and reused by later screenings with the same device, transducer, and volume
-setting. A calibration applies only to the transducer it was made with:
-switching transducers requires a new one. **Clear calibration** removes it. All test levels are relative to a
-1 kHz reference tone generated at the digital level that would be 75 dB SPL
+setting. One normal-hearing reference listener can calibrate for everyone
+screened in that sitting; screened participants do not repeat calibration.
+A calibration applies only to the transducer it was made with:
+switching transducers requires a new one. **Clear calibration** removes it.
+Earlier 75 dB SPL/MCL calibrations are not reused and must be repeated.
+All test levels are relative to a
+1 kHz reference tone generated at the digital level that would be 80 dB SPL
 under the uncalibrated device assumption (0.1 amplitude = 93.5 dB SPL). The
 code is in [`js/perceptualCalibration.js`](js/perceptualCalibration.js).
 
 1. **Coupler / sound level meter.** With one earcup or earbud on a coupler
    matching the transducer's RETSPL reference (flat-plate adapter for the HD
    280 Pro), the operator plays the continuous reference tone and
-   adjusts the device volume until the meter reads 75 dB SPL, then saves.
-   Accuracy is then limited by the meter and the device's volume step size.
-2. **Perceptual (no meter).** The participant first uses the device volume to
-   make the tone roughly comfortable. They then make four on-screen
-   most-comfortable-level (MCL) settings with **Softer**/**Louder** (2 dB
+   adjusts the device volume until the meter reads **80 dB SPL**, checks
+   the other side, then saves. This is a separate continuous, 1 kHz
+   reference-tone option, not the pulsed screening stimulus. Its actual
+   SPL is unknown until measured. Accuracy also depends on the coupler,
+   transducer fit, volume step size, and frequency response.
+2. **Perceptual (no meter).** A **normal-hearing reference listener** first
+   uses the device volume to give the continuous 1 kHz tone roughly
+   **Medium** loudness. They then make four on-screen
+   **Medium** settings with **Softer**/**Louder** (2 dB
    steps). The runs alternate ascending (starting too soft) and descending
    (starting too loud), with starting points randomized 12–20 dB from the
    running estimate so that button presses cannot be counted. The mean
    setting becomes a digital gain offset, and the app assumes that this level
-   is the participant's MCL of 75 dB SPL. Averaging ascending and descending
-   runs cancels the approach bias. Averaging four settings reduces
-   within-listener scatter (Hochberg, [1975](#references); Punch et al.,
-   [2004](#references)). If the settings span more than 12 dB, the
+   is **80 dB SPL**. "Medium" means neither soft nor loud; it is a
+   loudness-category judgment, **not most comfortable level (MCL)**.
+   Balanced approaches can reduce directional bias, and averaging can
+   reduce random within-listener scatter; neither removes systematic
+   differences between reference listeners. If the settings span more than 12 dB, the
    calibration is saved but flagged (amber indicator) and a repeat is
    suggested. The settings can range from −30 to +20 dB around the reference;
    at a limit, the participant is asked to adjust the device volume and
@@ -108,40 +117,105 @@ code is in [`js/perceptualCalibration.js`](js/perceptualCalibration.js).
 Without calibration, the screening still runs using the unverified device
 assumption. When the screening starts, the calibration in effect is frozen
 for that test and the panel is locked. The CSV export reports the method,
-the gain offset, and, for perceptual calibration, each run's direction,
-starting level, and setting, plus the setting SD and the ascending-minus-
-descending difference. A test without calibration is reported as not
-calibrated.
+reference frequency, reference SPL, digital gain offset, completion and
+expiry times. For perceptual calibration it explicitly records **Medium**,
+the **assumed 80 dB SPL**, the normal-hearing reference-listener basis,
+setting count, SD, range, ascending-minus-descending difference, and
+consistency flag. Individual adjustment tracks and settings are not saved
+or exported; only summary results are retained. A test without calibration
+is reported as not calibrated.
 
-The 75 dB SPL anchor approximates the pure-tone MCL of adults with normal
-hearing. "Comfortable" warble tones averaged 70–79 dB HL across 500–4000 Hz
-in Hawley et al. ([2017](#references)). The "medium" loudness category at
-1 kHz was about 81–85 dB SPL for listeners with near-normal thresholds in
-Al-Salim et al. ([2010](#references)).
+**Rationale for the provisional Medium anchor.** A defined loudness category
+is distinct from a potentially broad comfort judgment. The normal-hearing
+subset of Neely's *Quick Tests of Consonant Confusion and Loudness Growth*
+([Zenodo dataset](https://doi.org/10.5281/zenodo.23090549)) provided 31 usable
+1 kHz Medium estimates at 25 categorical units. In condition code 1, their
+mean was 78.6 dB SPL when estimates were averaged across repeats, or
+80.0 dB SPL when repeat judgments were pooled before estimation. This
+supports **80 dB SPL as a rounded experimental anchor**, not an established
+clinical reference. The archive's condition-code-to-pure-tone mapping
+remains unconfirmed; transfer to this continuous-tone adjustment procedure
+requires physical validation. This is not a relabeling of MCL data.
 
-**Expected error of perceptual calibration.** The per-test offset is
-e = MCL(participant) − 75 dB SPL. Every stimulus is e dB louder than intended, so the reported thresholds
-are about e dB too low. The literature suggests this offset is large:
+**Anticipated screening error, including accurate device calibration.**
+A shared-reference simulation used Neely's (2026) [Zenodo dataset](https://doi.org/10.5281/zenodo.23090549):
+`qCLS_analysis.zip` supplied `qcls_data.mat` (raw loudness judgments,
+condition/run identifiers, and audiometric thresholds), and `Data.zip`
+supplied `QuickTests_DATA.xlsx` (test-ear and contralateral audiograms,
+ages, and sexes). The dataset contains 100 listed CLS participants:
+32 normal-hearing and 68 with hearing loss. The simulation excluded NH029
+because raw CLS observations were absent and HL038/HL065 because their
+contralateral audiograms were incomplete, leaving 97 participants.
+Medium levels were interpolated at 25 categorical units using monotonic
+fits to condition-1 1 kHz judgments within each repeat, without
+extrapolation, then averaged within each reference listener.
 
-| Source | Finding | Implication |
-|--------|---------|-------------|
-| Hawley et al. (2017) | "Comfortable" contour category, normal-hearing adults: between-subject SD 7–14 dB, within-subject SD 4.5–12 dB | Random offset of ~7–10 dB SD |
-| Al-Salim et al. (2010) | Loudness-scaling test–retest difference SD 6.6–7.8 dB at 1–4 kHz | ~5 dB SD from retest alone |
-| Dirks & Kamm (1976) | Normal-hearing MCL range is 10–20 dB wide | Any point in the range is "comfortable" |
-| Punch et al. (2004); Hochberg (1975); Berger et al. (1980) | Instructions and ascending vs descending approach shift MCL by ~5–10 dB; pure-tone MCL reliability is poor | Procedure adds bias and variance |
-| Kamm et al. (1978); Al-Salim et al. (2010) | MCL is nearly constant in SPL for mild loss and rises with greater loss (~0.15–0.2 dB per dB HL from 0–50 dB HL, from Al-Salim Table 2) | Hearing loss is partly under-reported |
+The simulation used 97 participants, 31 normal-hearing
+reference listeners, two simulated calibrations per reference, and 540
+screenings per anchor. Ten participant-held-out folds estimated reference
+setting variability from training normal-hearing listeners only. Each
+held-out reference calibrated for other held-out participants. The real
+screening staircase and the **fixed NHANES-trained PCA model** were used;
+no PCA was trained on Zenodo. The four alternating Medium adjustments
+were simulated, not measured in that dataset.
+Their single-setting variability was estimated from training-fold
+normal-hearing paired-repeat differences divided by √2 (SD 4.9–5.7 dB).
+Four 2 dB adjustment tracks had randomized starts and assumed balanced
+±3 dB directional biases. Each session's residual calibration error was
+applied while generating the screening responses, before the PCA fit.
 
-For a single device-volume setting, the best estimate is a random offset of
-about **8–10 dB SD**, plus an under-estimate of roughly 0.2 dB per dB of
-loss above ~20 dB HL. The four-run procedure removes the approach bias and
-roughly halves the within-listener part (~5–6 dB SD for one setting). The
-between-listener differences in MCL (~7 dB SD) remain, so the expected
-offset SD is about **7–8 dB**. For comparison, threshold-based
-biological calibration of home audiometry had a calibration-error SD of
-6.2 dB (Masalski & Kręcicki, [2013](#references)) and an overall SD of
-8.3 dB (Masalski et al., [2018](#references)). Perceptual calibration is
-therefore a coarse, roughly ±15 dB (95%) calibration, not an acoustic
-calibration. Use the coupler method whenever a meter is available.
+The seven fixed anchors below were prespecified comparison options. The
+additional cross-validated normal-hearing mean anchor was estimated only
+from training listeners (77.6–79.2 dB SPL across folds). Metrics give equal
+weight to reference listeners, then sessions, then screened participants;
+the accurate physical-calibration control uses matching participants and
+response seeds.
+
+| Calibration | Mean session calibration bias | Session calibration MAE | Final threshold bias | Final threshold MAE | Four-frequency average MAE |
+|-------------|-------------------------------|-------------------------|----------------------|---------------------|----------------------------|
+| Medium assumed 70 dB SPL | −8.1 dB | 10.0 dB | −8.6 dB | 11.4 dB | 10.5 dB |
+| Medium assumed 75 dB SPL | −3.1 dB | 7.4 dB | −4.1 dB | 9.5 dB | 8.1 dB |
+| Medium assumed 78 dB SPL | −0.1 dB | 7.3 dB | −1.2 dB | 9.1 dB | 7.5 dB |
+| **Medium assumed 80 dB SPL** | **+1.9 dB** | **7.6 dB** | **+0.8 dB** | **9.3 dB** | **7.7 dB** |
+| Medium assumed 82 dB SPL | +3.9 dB | 8.4 dB | +2.6 dB | 9.6 dB | 8.2 dB |
+| Medium assumed 85 dB SPL | +6.9 dB | 9.9 dB | +5.4 dB | 10.5 dB | 9.2 dB |
+| Medium assumed 90 dB SPL | +11.9 dB | 13.3 dB | +10.4 dB | 13.1 dB | 12.3 dB |
+| Cross-validated normal-hearing mean | +0.5 dB | 7.5 dB | −0.7 dB | 9.2 dB | 7.6 dB |
+| Accurate physical calibration | 0 dB | 0 dB | −1.2 dB | **5.9 dB** | **3.3 dB** |
+
+Session calibration MAE is the mean absolute residual level error;
+final threshold MAE is mean absolute error against clinical thresholds.
+The four-frequency average MAE measures error in the test ear's arithmetic
+mean threshold, rather than averaging the four absolute threshold errors.
+Positive bias means
+reported thresholds are too high. Final errors average test-ear thresholds
+at 500, 1000, 2000, and 4000 Hz. Even accurate calibration leaves error
+from the short response procedure and population-model reconstruction:
+it does not imply error-free screening. The 80 dB anchor's threshold MAE
+had a reference-cluster bootstrap 95% interval of 7.8–11.0 dB. The MAE
+difference between 78 and 80 dB anchors was only 0.14 dB and not clearly
+distinguishable (95% interval −0.30 to +0.57 dB).
+Anchors of 78–80 dB SPL gave the lowest observed threshold MAEs; 70 dB SPL
+underestimated thresholds, while 85–90 dB SPL increasingly overestimated
+them. These comparisons support 80 dB SPL as a rounded provisional choice,
+not a uniquely optimal anchor or a clinically validated reference.
+
+For anchor A and the reference listener's measured Medium level M, residual
+nominal-level error is A − M. Unknown common device gain cancels, but this
+reference-listener error is shared by everyone screened in the session.
+Its simulated SD was **9.7 dB**; at the 80 dB anchor, the 90th percentile
+absolute calibration error was **15.7 dB**. More screened participants do
+not average away that session error.
+
+These are conditional simulations, not validated deployment accuracy:
+they assume independent setting variability, balanced directional biases,
+a 5 dB psychometric slope, and stable frequency-independent device gain.
+They exclude noise, lapses, binaural loudness effects, frequency-response
+errors, and participant-specific headphone fit. Finite-repeat uncertainty
+in the reference Medium estimates was not deconvolved. A 1 kHz reference
+does not establish the full transducer response. **Use physical calibration
+whenever possible**, and repeat calibration if the device, volume, audio
+processing, or transducer changes.
 
 On mobile phones, question choices and screening response buttons use the
 available viewport with large touch targets, retaining the existing colors and
@@ -304,7 +378,7 @@ which it is not designed to correct:
    Yes/No at random.
 2. **Calibration error:** a fixed, frequency-independent attenuation is
    applied to every stimulus in a test.
-3. **MCL calibration:** each test gets a random offset
+3. **Legacy MCL sensitivity experiment (not the current Medium protocol):** each test gets a random offset
    e = 0.2 × max(0, better-ear PTA − 20) + σz, with z ~ N(0, 1), modelling the
    perceptual calibration error. Stimuli are e dB louder than intended.
 
@@ -353,7 +427,7 @@ Interpretation:
   shrinks genuine losses, so it should not be read as a correction. The raw
   staircase looks best at −10 dB only because its own ~+8 dB step bias
   happens to cancel the offset.
-- **MCL calibration (interaction only):** with the literature-based σ of
+- **Legacy MCL calibration (interaction only; not a validation of the current Medium protocol):** with the literature-based σ of
   ~8 dB, the perceptual-calibration error dominates the result, and the PCA
   fit performs about the same as the unpooled fit. Calibration accuracy must
   come from the calibration procedure. Under the hearing-loss term
@@ -379,7 +453,7 @@ the reported thresholds, and genuine atypical profiles may also be smoothed.
 
 - `index.html` — welcome page and starting point.
 - `pages/` — survey, instructions, test, results, and follow-up pages.
-- `js/perceptualCalibration.js` — optional coupler or perceptual (MCL) level
+- `js/perceptualCalibration.js` — optional coupler or normal-hearing Medium level
   calibration panel on the screening page.
 - `js/playAudio.js` — tone playback, response collection, and raw thresholds.
 - `js/pca.js` — trained PCA parameters and reconstruction functions.
@@ -410,5 +484,6 @@ screening tool, not a medical device. It does not provide a diagnosis.
 - Margolis, R. H., Saly, G. L., & Wilson, R. H. (2022). Ambient noise monitoring during pure-tone audiometry. *Journal of the American Academy of Audiology*, *33*(1), 45–56. <https://doi.org/10.1055/s-0041-1735803>
 - Masalski, M., & Kręcicki, T. (2013). Self-test web-based pure-tone audiometry: Validity evaluation and measurement error analysis. *Journal of Medical Internet Research*, *15*(4), e71. <https://doi.org/10.2196/jmir.2222>
 - Masalski, M., Grysiński, T., & Kręcicki, T. (2018). Hearing tests based on biologically calibrated mobile devices: Comparison with pure-tone audiometry. *JMIR mHealth and uHealth*, *6*(1), e10. <https://doi.org/10.2196/mhealth.7800>
+- Neely, S. (2026). *Quick Tests of Consonant Confusion and Loudness Growth* [Data set]. Zenodo. <https://doi.org/10.5281/zenodo.23090549>
 - Punch, J., Joseph, A., & Rakerd, B. (2004). Most comfortable and uncomfortable loudness levels: Six decades of research. *American Journal of Audiology*, *13*(2), 144–157. <https://doi.org/10.1044/1059-0889(2004/019)>
 - Smull, C. C., Madsen, B., & Margolis, R. H. (2019). Evaluation of two circumaural earphones for audiometry. *Ear and Hearing*, *40*(1), 177–183. <https://doi.org/10.1097/AUD.0000000000000585>

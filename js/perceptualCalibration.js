@@ -1,15 +1,12 @@
 // Optional level calibration, done once per sitting and reused for later screenings.
 // All test levels are relative to a 1 kHz reference tone generated at the digital level that
-// nominally gives 75 dB SPL. Two opt-in methods tie that tone to an acoustic level:
+// nominally gives 80 dB SPL. Two opt-in methods tie that tone to an acoustic level:
 //   coupler:    the operator adjusts the device volume until a coupler/sound level meter reads
-//               75 dB SPL (gain offset 0).
-//   perceptual: the participant sets the device volume roughly comfortable, then makes four
-//               on-screen most-comfortable-level (MCL) settings, alternating ascending and
-//               descending runs from randomized starting levels. The mean setting is assumed
-//               to be 75 dB SPL, the approximate pure-tone MCL of normal-hearing adults
-//               (Hawley et al., 2017; Al-Salim et al., 2010). Averaging ascending and
-//               descending runs cancels the approach bias (Hochberg, 1975; Punch et al., 2004)
-//               and reduces within-listener scatter. See README.
+//               80 dB SPL (gain offset 0).
+//   perceptual: a normal-hearing reference listener makes four "Medium" settings, alternating
+//               ascending and descending runs. The mean is assigned a provisional 80 dB SPL
+//               anchor and reused for all screenings in the sitting. See README for evidence
+//               and uncertainty. Only summary results, not individual tracks, are retained.
 // Browsers cannot read or lock the device volume, so it must not be changed afterwards.
 // Transducer categories and their RETSPLs (dB SPL at 0 dB HL), used for dB HL -> dB SPL.
 const TRANSDUCERS = {
@@ -34,7 +31,8 @@ const TRANSDUCERS = {
 const DEFAULT_TRANSDUCER = "headphones";
 const TRANSDUCER_KEY = "transducerType";
 const CALIBRATION_FREQUENCY_HZ = 1000;
-const CALIBRATION_TARGET_DB_SPL = 75;
+const CALIBRATION_TARGET_DB_SPL = 80;
+const CALIBRATION_SCHEMA_VERSION = 2;
 // Device assumption without calibration (0.1 amplitude = 93.5 dB SPL); it sets the digital
 // level of the reference tone and leaves headroom for louder test tones.
 const LEGACY_REFERENCE_DB_SPL = 93.5;
@@ -44,11 +42,11 @@ const CALIBRATION_AMPLITUDE =
 const LEVEL_CALIBRATION_KEY = "levelCalibration";
 const LEVEL_CALIBRATION_USED_KEY = "levelCalibrationUsed";
 const CALIBRATION_VALID_HOURS = 4;
-const MCL_RUN_DIRECTIONS = ["ascending", "descending", "ascending", "descending"];
-const MCL_STEP_DB = 2;
-const MCL_START_DISTANCE_DB = [12, 20];
-const MCL_OFFSET_LIMITS_DB = [-30, 20];
-const MCL_CONSISTENCY_RANGE_DB = 12;
+const MEDIUM_RUN_DIRECTIONS = ["ascending", "descending", "ascending", "descending"];
+const MEDIUM_STEP_DB = 2;
+const MEDIUM_START_DISTANCE_DB = [12, 20];
+const MEDIUM_OFFSET_LIMITS_DB = [-30, 20];
+const MEDIUM_CONSISTENCY_RANGE_DB = 12;
 
 function defaultLocalStorage() {
     try {
@@ -71,7 +69,7 @@ function retsplFor(frequency, transducer = DEFAULT_TRANSDUCER) {
     return (TRANSDUCERS[transducer] || TRANSDUCERS[DEFAULT_TRANSDUCER]).retspl[frequency];
 }
 
-// gainOffsetDB is the digital level (re the reference tone) assumed to give 75 dB SPL.
+// gainOffsetDB is the digital level (re the reference tone) assumed to give 80 dB SPL.
 function splToAmplitude(dbSPL, gainOffsetDB = 0) {
     return CALIBRATION_AMPLITUDE * 10 ** ((dbSPL - CALIBRATION_TARGET_DB_SPL + gainOffsetDB) / 20);
 }
@@ -82,6 +80,10 @@ function storedLevelCalibration(storage = defaultLocalStorage(), now = new Date(
     try {
         const record = JSON.parse(storage.getItem(LEVEL_CALIBRATION_KEY) || "null");
         if (!record || !["coupler", "perceptual"].includes(record.method)) return null;
+        if (record.schemaVersion !== CALIBRATION_SCHEMA_VERSION ||
+            record.targetDbSPL !== CALIBRATION_TARGET_DB_SPL ||
+            record.frequencyHz !== CALIBRATION_FREQUENCY_HZ ||
+            !Number.isFinite(record.gainOffsetDB)) return null;
         if (!(Date.parse(record.expiresAt) > now.getTime())) return null;
         if ((record.transducer || DEFAULT_TRANSDUCER) !== transducer) return null;
         return record;
@@ -92,6 +94,7 @@ function storedLevelCalibration(storage = defaultLocalStorage(), now = new Date(
 
 function baseRecord(method, now, transducer) {
     return {
+        schemaVersion: CALIBRATION_SCHEMA_VERSION,
         method,
         transducer,
         frequencyHz: CALIBRATION_FREQUENCY_HZ,
@@ -115,20 +118,22 @@ function createPerceptualRecord(runs, now = new Date(), transducer = DEFAULT_TRA
     const range = Math.max(...settings) - Math.min(...settings);
     return {
         ...baseRecord("perceptual", now, transducer),
+        loudnessLabel: "Medium",
+        referenceListener: "normal-hearing",
+        settingCount: settings.length,
         gainOffsetDB: round(average),
-        runs,
         settingSDDB: round(sd),
         ascendingMinusDescendingDB: round(byDirection("ascending") - byDirection("descending")),
         settingRangeDB: round(range),
-        consistent: range <= MCL_CONSISTENCY_RANGE_DB
+        consistent: range <= MEDIUM_CONSISTENCY_RANGE_DB
     };
 }
 
 function describeCalibration(record) {
     if (!record) return "not set (optional)";
     const time = new Date(record.completedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    if (record.method === "coupler") return `coupler, ${CALIBRATION_TARGET_DB_SPL} dB SPL (set ${time})`;
-    return `perceptual${record.consistent ? "" : ", variable"} (set ${time})`;
+    if (record.method === "coupler") return `coupler, ${record.targetDbSPL} dB SPL (set ${time})`;
+    return `Medium assumed ${record.targetDbSPL} dB SPL${record.consistent ? "" : ", variable"} (set ${time})`;
 }
 
 function initializeLevelCalibration({
@@ -203,24 +208,25 @@ function initializeLevelCalibration({
         stopTone();
         mode = "idle";
         offsetDB = 0;
+        runs = [];
         buttons.couplerPlay.textContent = "Play coupler tone";
         refresh();
         status.textContent = message;
     }
 
     function startRun() {
-        const direction = MCL_RUN_DIRECTIONS[runs.length];
-        const [low, high] = MCL_START_DISTANCE_DB;
+        const direction = MEDIUM_RUN_DIRECTIONS[runs.length];
+        const [low, high] = MEDIUM_START_DISTANCE_DB;
         // Randomized start levels keep the participant from counting button presses.
-        const distance = MCL_STEP_DB * Math.round((low + random() * (high - low)) / MCL_STEP_DB);
+        const distance = MEDIUM_STEP_DB * Math.round((low + random() * (high - low)) / MEDIUM_STEP_DB);
         const center = runs.length ? runs.reduce((sum, run) => sum + run.settingDB, 0) / runs.length : 0;
-        const [minimum, maximum] = MCL_OFFSET_LIMITS_DB;
-        offsetDB = Math.min(maximum, Math.max(minimum, Math.round(center / MCL_STEP_DB) * MCL_STEP_DB + (direction === "ascending" ? -distance : distance)));
+        const [minimum, maximum] = MEDIUM_OFFSET_LIMITS_DB;
+        offsetDB = Math.min(maximum, Math.max(minimum, Math.round(center / MEDIUM_STEP_DB) * MEDIUM_STEP_DB + (direction === "ascending" ? -distance : distance)));
         runs.push({ direction, startDB: offsetDB, settingDB: null });
         setToneLevel();
-        status.textContent = `Adjustment ${runs.length} of ${MCL_RUN_DIRECTIONS.length}: the tone now starts ` +
-            `${direction === "ascending" ? "too soft. Select Louder" : "too loud. Select Softer"} until it is at your most comfortable level, ` +
-            "then select Comfortable. You may go past it and come back.";
+        status.textContent = `Adjustment ${runs.length} of ${MEDIUM_RUN_DIRECTIONS.length}: the tone starts ` +
+            `${direction === "ascending" ? "softer. Select Louder" : "louder. Select Softer"} until its loudness is Medium (neither soft nor loud), ` +
+            "then select Medium. You may go past it and come back. Cancel if the tone is uncomfortable.";
     }
 
     async function guarded(action) {
@@ -252,7 +258,7 @@ function initializeLevelCalibration({
         runs = [];
         await startTone();
         setEnabled(["mclVolumeSet", "mclCancel"]);
-        status.textContent = "Step 1: use the device volume buttons until the tone is roughly comfortable, then select Volume is set.";
+        status.textContent = "Normal-hearing reference listener: set the device volume until the tone has roughly Medium loudness (neither soft nor loud), then select Volume is set.";
     }));
 
     buttons.mclVolumeSet.addEventListener("click", () => {
@@ -262,7 +268,7 @@ function initializeLevelCalibration({
     });
 
     function step(deltaDB) {
-        const [minimum, maximum] = MCL_OFFSET_LIMITS_DB;
+        const [minimum, maximum] = MEDIUM_OFFSET_LIMITS_DB;
         const next = offsetDB + deltaDB;
         if (next < minimum || next > maximum) {
             status.textContent = `This is the ${deltaDB > 0 ? "loudest" : "softest"} setting available. ` +
@@ -272,16 +278,16 @@ function initializeLevelCalibration({
         offsetDB = next;
         setToneLevel();
     }
-    buttons.mclSofter.addEventListener("click", () => step(-MCL_STEP_DB));
-    buttons.mclLouder.addEventListener("click", () => step(MCL_STEP_DB));
+    buttons.mclSofter.addEventListener("click", () => step(-MEDIUM_STEP_DB));
+    buttons.mclLouder.addEventListener("click", () => step(MEDIUM_STEP_DB));
 
     buttons.mclComfortable.addEventListener("click", () => {
         runs[runs.length - 1].settingDB = offsetDB;
-        if (runs.length < MCL_RUN_DIRECTIONS.length) return startRun();
+        if (runs.length < MEDIUM_RUN_DIRECTIONS.length) return startRun();
         const record = createPerceptualRecord(runs, now(), selectedTransducer(storage));
         storage?.setItem(LEVEL_CALIBRATION_KEY, JSON.stringify(record));
         finish(record.consistent
-            ? `Perceptual calibration saved for ${CALIBRATION_VALID_HOURS} hours. Do not change the device volume.`
+            ? `Medium is assumed to be ${record.targetDbSPL} dB SPL. Calibration saved for ${CALIBRATION_VALID_HOURS} hours for all screenings with this setup. Do not change the device volume.`
             : `Saved, but your settings varied by ${record.settingRangeDB} dB. Consider repeating the calibration.`);
     });
 
@@ -304,7 +310,7 @@ function initializeLevelCalibration({
 
     status.textContent = refresh()
         ? "A calibration from this sitting is active. Keep the same device, headphones and volume."
-        : "No calibration is set. Choose one of the methods above, or start the screening without calibration.";
+        : "No current 80 dB SPL calibration is set. Previous 75 dB SPL/MCL calibrations must be repeated. Choose a method above, or screen without calibration.";
 
     return {
         // Called when the screening starts: stops any tone and freezes the calibration used.

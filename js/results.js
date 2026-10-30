@@ -74,18 +74,27 @@ function levelCalibrationCSV() {
     if (!record || record.method === "none") {
         return csv + "Method,Not calibrated; levels assume 0.1 digital amplitude = 93.5 dB SPL (unverified)\n\n";
     }
-    csv += `Method,${record.method === "coupler" ? "Coupler / sound level meter" : "Perceptual most comfortable level (MCL)"}\n`;
+    const medium = record.method === "perceptual" && record.loudnessLabel === "Medium";
+    csv += `Method,${record.method === "coupler" ? "Coupler / sound level meter" :
+        medium ? "Perceptual Medium (normal-hearing reference listener)" : "Perceptual most comfortable level (MCL; legacy)"}\n`;
     csv += `Reference tone (Hz),${record.frequencyHz}\n`;
     csv += `Reference tone level assumed (dB SPL),${record.targetDbSPL}\n`;
     csv += `Digital gain offset (dB),${record.gainOffsetDB}\n`;
     if (record.method === "perceptual") {
-        csv += `MCL settings (dB re reference; direction:start->setting),${record.runs.map(run => `${run.direction}:${run.startDB}->${run.settingDB}`).join(" ")}\n`;
-        csv += `MCL setting SD (dB),${record.settingSDDB}\n`;
+        csv += `Loudness label,${medium ? "Medium" : "MCL (legacy)"}\n`;
+        if (medium) {
+            csv += `Medium level assumed (dB SPL),${record.targetDbSPL}\n`;
+            csv += "Reference listener,Normal hearing; shared session calibration\n";
+            csv += `Number of settings,${record.settingCount}\n`;
+        }
+        csv += `Setting SD (dB),${record.settingSDDB}\n`;
+        csv += `Setting range (dB),${record.settingRangeDB}\n`;
         csv += `Ascending minus descending (dB),${record.ascendingMinusDescendingDB}\n`;
         csv += `Settings consistent (range <= 12 dB),${record.consistent ? "Yes" : "No"}\n`;
     }
     csv += `Completed at,${record.completedAt}\n`;
-    csv += "Note,Assumes the device volume was not changed after calibration\n\n";
+    csv += `Valid until,${record.expiresAt}\n`;
+    csv += "Note,Assumes the device and transducer and volume were unchanged after calibration\n\n";
     return csv;
 }
 

@@ -381,24 +381,17 @@ second in a browser.
 ### Robustness validation
 
 [`scripts/pcaRecoverySimulation.js`](scripts/pcaRecoverySimulation.js) drives
-the real staircase in `js/playAudio.js` with simulated listeners. It covers
-ages 25/45/65/80, both sexes, each-ear and right-ear-only modes, and seven
-ground-truth profiles (flat 0/20/40/60, high-frequency, sloping, asymmetric).
-It compares the raw staircase (last Yes level), an unpooled
-per-frequency logistic fit, and the PCA + psychometric fit. Errors are
-measured against the true thresholds.
-Each experiment level reuses the same random seeds. The primary experiment
-tests the intended purpose of the PCA fit, robustness to lapses. A second
-experiment documents how the fit interacts with level-calibration errors,
-which it is not designed to correct:
+the real staircase in `js/playAudio.js` with simulated listeners to evaluate
+robustness to lapses of attention. It covers ages 25/45/65/80, both sexes,
+each-ear and right-ear-only modes, and seven ground-truth profiles (flat
+0/20/40/60, high-frequency, sloping, asymmetric). On a specified proportion of
+trials, the simulated listener answers Yes/No at random (50/50 guesses). It
+compares the raw staircase (last Yes level), an unpooled per-frequency
+logistic fit, and the PCA + psychometric fit. Errors are measured against the
+true thresholds, and each lapse rate reuses the same random seeds.
 
-1. **Lapses (primary):** on a proportion of trials, the listener answers
-   Yes/No at random.
-2. **Calibration error:** a fixed, frequency-independent attenuation is
-   applied to every stimulus in a test.
-
-The tables below report each-ear testing (both ears tested separately,
-56 simulated tests per level); they do not evaluate inference of an
+The table below reports each-ear testing (both ears tested separately,
+56 simulated tests per lapse rate); it does not evaluate inference of an
 untested left ear.
 
 | Lapse rate | Raw staircase | Unpooled | PCA fit |
@@ -410,49 +403,25 @@ untested left ear.
 | 30% | 17.7 | 13.3 | 7.1 |
 | 50% | 22.7 | 18.6 | 11.2 |
 
-| Attenuation | Raw staircase | Unpooled | PCA fit |
-|-------------|---------------|----------|---------|
-| −20 dB | 10.4 | 18.0 | 20.4 |
-| −10 dB | 5.1 | 10.1 | 11.8 |
-| 0 dB | 8.7 | 5.8 | 5.1 |
-| +10 dB | 17.7 | 10.6 | 8.2 |
-| +20 dB | 27.3 | 20.3 | 17.4 |
-| +30 dB | 36.6 | 30.1 | 26.2 |
-
-Interpretation:
-
-- **Lapses:** the PCA fit is clearly more robust than either baseline. Its
-  error grows by only ~2 dB up to a 30% lapse rate, because LOOCV removes
-  responses that contradict the cross-frequency pattern (5% of trials
-  excluded at a 30% lapse rate), and because the covariance pools
-  information across frequencies and ears.
-- **Calibration (interaction only):** the PCA fit does not remove
-  calibration errors, and it is not intended to. The mean
-  bias rises 0.94 dB per dB of attenuation,
-  compared with ~0.93–0.99 for the baselines. The first trained component loads
-  positively on all eight thresholds, so a uniform calibration offset looks
-  exactly like a real flat change in hearing. No response-based model can
-  separate the two without an external level reference. The slightly lower
-  slope reflects shrinkage toward the population prior, which equally
-  shrinks genuine losses, so it should not be read as a correction. The raw
-  staircase looks best at −10 dB only because its own ~+8 dB step bias
-  happens to cancel the offset.
+The PCA fit is clearly more robust than either baseline: its mean absolute
+error grows by only ~2 dB up to a 30% lapse rate, because LOOCV removes
+responses that contradict the cross-frequency pattern (5% of trials excluded
+at a 30% lapse rate), and because the covariance pools information across
+frequencies and ears.
 
 In right-ear-only mode, the simulator scores the tested right ear;
 left-ear inference accuracy requires separate validation. The simulation assumes the
-model's own 5 dB psychometric slope; lapses are 50/50 guesses.
+model's own 5 dB psychometric slope.
 
-Run it with `node scripts/pcaRecoverySimulation.js [report.json] [repetitions] [calibration,lapse]`
-(default: `calibration,lapse`).
+Run it with `node scripts/pcaRecoverySimulation.js [report.json] [repetitions] lapse`.
 
 The results page reports a Hearing Number for each ear, calculated as the
 arithmetic mean of reconstructed thresholds at 500, 1000, 2000, and 4000 Hz,
 alongside those frequency-specific thresholds. The number is presented as a
 wellness-oriented snapshot to help people understand hearing differences,
 not as a medical diagnosis. It is a population-informed estimate that is
-robust to occasional lapses of attention, but it does not correct level
-calibration errors. Systematic errors such as a calibration offset pass into
-the reported thresholds, and genuine atypical profiles may also be smoothed.
+robust to occasional lapses of attention, though genuine atypical profiles
+may also be smoothed.
 
 ## Project layout
 

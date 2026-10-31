@@ -82,8 +82,6 @@ setting. One normal-hearing reference listener can calibrate for everyone
 screened in that sitting; screened participants do not repeat calibration.
 A calibration applies only to the transducer it was made with:
 switching transducers requires a new one. **Clear calibration** removes it.
-Earlier calibration versions (including diotic perceptual calibrations and
-legacy MCL) are not reused and must be repeated.
 All test levels are relative to a
 1 kHz reference tone generated at the digital level that would be 80 dB SPL
 under the uncalibrated device assumption (0.1 amplitude = 93.5 dB SPL). The
@@ -110,7 +108,8 @@ code is in [`js/perceptualCalibration.js`](js/perceptualCalibration.js).
    tone monaurally to the right ear matches the monaural screening
    presentation and the monaural 80 dB SPL anchor directly, avoiding
    binaural loudness-summation assumptions. "Medium" means neither soft nor
-   loud; it is a loudness-category judgment, **not most comfortable level (MCL)**.
+   loud; it is a specific loudness-category judgment rather than a comfort
+   level.
    Balanced approaches can reduce directional bias, and averaging can
    reduce random within-listener scatter; neither removes systematic
    differences between reference listeners. If the settings span more than 12 dB, the
@@ -132,7 +131,8 @@ or exported; only summary results are retained. A test without calibration
 is reported as not calibrated.
 
 **Rationale for the provisional Medium anchor.** A defined loudness category
-is distinct from a potentially broad comfort judgment. The normal-hearing
+is more constrained than a broad comfort judgment (Al-Salim et al.,
+[2010](#references); Punch, Joseph, & Rakerd, [2004](#references)). The normal-hearing
 subset of Neely's *Quick Tests of Consonant Confusion and Loudness Growth*
 ([Zenodo dataset](https://doi.org/10.5281/zenodo.23090549)) provided 31 usable
 1 kHz Medium estimates at 25 categorical units. In condition code 1, their
@@ -141,7 +141,7 @@ mean was 78.6 dB SPL when estimates were averaged across repeats, or
 supports **80 dB SPL as a rounded experimental anchor**, not an established
 clinical reference. The archive's condition-code-to-pure-tone mapping
 remains unconfirmed; transfer to this continuous-tone adjustment procedure
-requires physical validation. This is not a relabeling of MCL data.
+requires physical validation.
 
 **Anticipated screening error, including accurate device calibration.**
 A shared-reference simulation used Neely's (2026) [Zenodo dataset](https://doi.org/10.5281/zenodo.23090549):
@@ -224,14 +224,14 @@ whenever possible**, and repeat calibration if the device, volume, audio
 processing, or transducer changes.
 
 On mobile phones, question choices and screening response buttons use the
-available viewport with large touch targets, retaining the existing colors and
-shapes. The main question and screening controls fit without scrolling at
-standard text sizes. Expanded optional room-noise instructions and enlarged text
-remain scrollable so that content is never clipped.
+available viewport with large touch targets. The main question and screening
+controls fit without scrolling at standard text sizes. Expanded optional
+room-noise instructions and enlarged text remain scrollable so that content
+is never clipped.
 
 Questions, form labels, and multiple-choice option text use a shared readable
 font size. Start and Next use the same navigation text size. The three
-multiple-choice pages keep horizontal options on larger screens and
+multiple-choice pages display options horizontally on larger screens and
 automatically stack them vertically on screens 600 CSS pixels wide or less.
 Pages scroll vertically so all options remain accessible on phones.
 
@@ -304,8 +304,6 @@ join the audiometry file (`AUX_G.xpt`) with the demographics file
 (`DEMO_G.xpt`) on `SEQN`, then use age, sex, and the eight 500–4000 Hz
 right- and left-ear thresholds. See the CDC's
 [NHANES 2011–2012 AUX_G documentation](https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2011/DataFiles/AUX_G.htm#Eligible_Sample).
-The model uses the 2011–2012 `AUX_G` cycle, rather than the 2015–2016 `AUX_I`
-cycle.
 
 NHANES 2011–2012 examined 9,338 participants overall; the PCA training data
 are the 3,857 records (ages 20–69; 1,969 male, 1,888 female) with complete
@@ -366,7 +364,7 @@ hearing data collected as part of the National Health and Nutrition
 Examination Survey (NHANES), and the left-ear thresholds and Hearing Number
 are explicitly labeled as **inferred; not tested** (in both the UI and CSV).
 Such inference cannot exclude unnoticed asymmetry. Participants reporting a
-difference still have each ear tested separately.
+difference have each ear tested separately.
 
 Before the final fit, leave-one-out cross-validation (LOOCV) predicts each
 trial from the other trials. If the probability of the observed response is
@@ -386,29 +384,25 @@ second in a browser.
 the real staircase in `js/playAudio.js` with simulated listeners. It covers
 ages 25/45/65/80, both sexes, each-ear and right-ear-only modes, and seven
 ground-truth profiles (flat 0/20/40/60, high-frequency, sloping, asymmetric).
-It compares four estimates: the raw staircase (last Yes level), an unpooled
-per-frequency logistic fit, the legacy unit-variance PCA prior, and the
-current scaled PCA prior. Errors are measured against the true thresholds.
+It compares the raw staircase (last Yes level), an unpooled
+per-frequency logistic fit, and the PCA + psychometric fit. Errors are
+measured against the true thresholds.
 Each experiment level reuses the same random seeds. The primary experiment
-tests the intended purpose of the PCA fit, robustness to lapses. Two further
-experiments document how the fit interacts with level-calibration errors,
+tests the intended purpose of the PCA fit, robustness to lapses. A second
+experiment documents how the fit interacts with level-calibration errors,
 which it is not designed to correct:
 
 1. **Lapses (primary):** on a proportion of trials, the listener answers
    Yes/No at random.
 2. **Calibration error:** a fixed, frequency-independent attenuation is
    applied to every stimulus in a test.
-3. **Legacy MCL sensitivity experiment (not the current Medium protocol):** each test gets a random offset
-   e = 0.2 × max(0, better-ear PTA − 20) + σz, with z ~ N(0, 1), modelling the
-   perceptual calibration error. Stimuli are e dB louder than intended.
 
-The tables below were generated before the right-ear-only workflow change.
-They report each-ear testing (both ears tested separately), which is
-unchanged; they do not validate inference of an untested left ear.
-Single-ear mean absolute error (dB, 56 simulated tests per level):
+The tables below report each-ear testing (both ears tested separately,
+56 simulated tests per level); they do not evaluate inference of an
+untested left ear.
 
-| Lapse rate | Raw staircase | Unpooled | Scaled PCA (current) |
-|------------|---------------|----------|----------------------|
+| Lapse rate | Raw staircase | Unpooled | PCA fit |
+|------------|---------------|----------|---------|
 | 0% | 8.7 | 5.8 | 5.1 |
 | 5% | 10.4 | 7.0 | 5.2 |
 | 10% | 11.5 | 8.2 | 5.3 |
@@ -416,21 +410,14 @@ Single-ear mean absolute error (dB, 56 simulated tests per level):
 | 30% | 17.7 | 13.3 | 7.1 |
 | 50% | 22.7 | 18.6 | 11.2 |
 
-| Attenuation | Raw staircase | Unpooled | Scaled PCA (current) |
-|-------------|---------------|----------|----------------------|
+| Attenuation | Raw staircase | Unpooled | PCA fit |
+|-------------|---------------|----------|---------|
 | −20 dB | 10.4 | 18.0 | 20.4 |
 | −10 dB | 5.1 | 10.1 | 11.8 |
 | 0 dB | 8.7 | 5.8 | 5.1 |
 | +10 dB | 17.7 | 10.6 | 8.2 |
 | +20 dB | 27.3 | 20.3 | 17.4 |
 | +30 dB | 36.6 | 30.1 | 26.2 |
-
-| MCL offset SD σ | Raw staircase | Unpooled | Scaled PCA (current) |
-|-----------------|---------------|----------|----------------------|
-| 0 dB (hearing-loss term only) | 7.5 | 6.1 | 6.6 |
-| 4 dB | 8.0 | 7.0 | 6.9 |
-| 8 dB | 9.5 | 8.8 | 8.6 |
-| 12 dB | 11.5 | 11.3 | 11.4 |
 
 Interpretation:
 
@@ -450,18 +437,12 @@ Interpretation:
   shrinks genuine losses, so it should not be read as a correction. The raw
   staircase looks best at −10 dB only because its own ~+8 dB step bias
   happens to cancel the offset.
-- **Legacy MCL calibration (interaction only; not a validation of the current Medium protocol):** with the literature-based σ of
-  ~8 dB, the perceptual-calibration error dominates the result, and the PCA
-  fit performs about the same as the unpooled fit. Calibration accuracy must
-  come from the calibration procedure. Under the hearing-loss term
-  alone (σ = 0), the PCA fit has a −4.3 dB mean bias, because both the MCL
-  shift and the population prior push large losses downward.
 
-The current simulator scores the tested right ear in right-only mode;
+In right-ear-only mode, the simulator scores the tested right ear;
 left-ear inference accuracy requires separate validation. The simulation assumes the
 model's own 5 dB psychometric slope; lapses are 50/50 guesses.
 
-Run it with `node scripts/pcaRecoverySimulation.js [report.json] [repetitions] [calibration,lapse,mcl]`
+Run it with `node scripts/pcaRecoverySimulation.js [report.json] [repetitions] [calibration,lapse]`
 (default: `calibration,lapse`).
 
 The results page reports a Hearing Number for each ear, calculated as the
@@ -498,16 +479,9 @@ screening tool, not a medical device. It does not provide a diagnosis.
 
 - Al-Salim, S. C., Kopun, J. G., Neely, S. T., Jesteadt, W., Stiegemann, B., & Gorga, M. P. (2010). Reliability of categorical loudness scaling and its relation to threshold. *Ear and Hearing*, *31*(4), 567–578. <https://doi.org/10.1097/AUD.0b013e3181da4d15>
 - American Speech-Language-Hearing Association. (1978). Guidelines for manual pure-tone audiometry. *Asha*, *20*, 279–301.
-- Berger, K. W., Harrison, L. D., Monack, N., & Ferren, G. E. (1980). Comfortable loudness judgments for discrete frequency signals. *Journal of Auditory Research*, *20*(2), 119–127. PMID 7345058.
 - Burk, M. H., & Wiley, T. L. (2004). Continuous versus pulsed tones in audiometry. *American Journal of Audiology*, *13*(1), 54–61. <https://doi.org/10.1044/1059-0889(2004/008)>
-- Dirks, D. D., & Kamm, C. (1976). Psychometric functions for loudness discomfort and most comfortable loudness levels. *Journal of Speech and Hearing Research*, *19*(4), 613–627. <https://doi.org/10.1044/jshr.1904.613>
-- Hawley, M. L., Sherlock, L. P., & Formby, C. (2017). Intra- and intersubject variability in audiometric measures and loudness judgments in older listeners with normal hearing. *Seminars in Hearing*, *38*(1), 3–25. <https://doi.org/10.1055/s-0037-1598063>
 - Ho, C.-Y., Li, P.-C., & Young, S.-T. (2017). Reference equivalent threshold sound pressure levels for Apple EarPods. *The Journal of the Acoustical Society of America*, *141*(2), EL115–EL119. <https://doi.org/10.1121/1.4976110>
-- Hochberg, I. (1975). Most comfortable listening for the loudness and intelligibility of speech. *Audiology*, *14*(1), 27–33. <https://doi.org/10.3109/00206097509071720>
-- Kamm, C., Dirks, D. D., & Mickey, M. R. (1978). Effect of sensorineural hearing loss on loudness discomfort level and most comfortable loudness judgments. *Journal of Speech and Hearing Research*, *21*(4), 668–681. <https://doi.org/10.1044/jshr.2104.668>
 - Margolis, R. H., Saly, G. L., & Wilson, R. H. (2022). Ambient noise monitoring during pure-tone audiometry. *Journal of the American Academy of Audiology*, *33*(1), 45–56. <https://doi.org/10.1055/s-0041-1735803>
-- Masalski, M., & Kręcicki, T. (2013). Self-test web-based pure-tone audiometry: Validity evaluation and measurement error analysis. *Journal of Medical Internet Research*, *15*(4), e71. <https://doi.org/10.2196/jmir.2222>
-- Masalski, M., Grysiński, T., & Kręcicki, T. (2018). Hearing tests based on biologically calibrated mobile devices: Comparison with pure-tone audiometry. *JMIR mHealth and uHealth*, *6*(1), e10. <https://doi.org/10.2196/mhealth.7800>
 - Neely, S. (2026). *Quick Tests of Consonant Confusion and Loudness Growth* [Data set]. Zenodo. <https://doi.org/10.5281/zenodo.23090549>
 - Punch, J., Joseph, A., & Rakerd, B. (2004). Most comfortable and uncomfortable loudness levels: Six decades of research. *American Journal of Audiology*, *13*(2), 144–157. <https://doi.org/10.1044/1059-0889(2004/019)>
 - Smull, C. C., Madsen, B., & Margolis, R. H. (2019). Evaluation of two circumaural earphones for audiometry. *Ear and Hearing*, *40*(1), 177–183. <https://doi.org/10.1097/AUD.0000000000000585>

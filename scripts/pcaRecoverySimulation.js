@@ -17,7 +17,7 @@ const root = path.join(__dirname, "..");
 const frequencies = [500, 1000, 2000, 4000];
 const ages = [25, 45, 65, 80];
 const sexes = ["male", "female"];
-const modes = ["single", "both"];
+const modes = ["single", "right"];
 const repetitions = Number(process.argv[3] || 1);
 const selectedExperiments = (process.argv[4] || "calibration,lapse").split(",");
 const attenuationsDB = [-20, -10, 0, 10, 20, 30];
@@ -62,7 +62,8 @@ function createStaircase(age, sex, mode) {
         },
         sessionStorage: {
             getItem: key => stored.get(key) ?? null,
-            setItem: (key, value) => stored.set(key, String(value))
+            setItem: (key, value) => stored.set(key, String(value)),
+            removeItem: key => stored.delete(key)
         },
         document: { querySelector: () => ({ addEventListener() {} }), querySelectorAll: () => [] },
         window: { location: {} },
@@ -86,9 +87,7 @@ function simulateTrials(age, sex, mode, truth, random, { attenuationDB = 0, laps
         const trial = vm.runInContext("({ ear: state.currentEar, frequency: state.frequencies[state.freqIndex], levelHL: state.currentDBHL })", context);
         const index = frequencies.indexOf(trial.frequency);
         const heardLevel = trial.levelHL - attenuationDB;
-        const pYes = mode === "both"
-            ? 1 - (1 - probability(truth[0][index], heardLevel)) * (1 - probability(truth[1][index], heardLevel))
-            : probability(truth[trial.ear === "right" ? 0 : 1][index], heardLevel);
+        const pYes = probability(truth[trial.ear === "right" ? 0 : 1][index], heardLevel);
         // Draw both numbers every trial so lapse and non-lapse runs share random streams.
         const lapse = random() < lapseRate;
         const draw = random();
@@ -97,22 +96,23 @@ function simulateTrials(age, sex, mode, truth, random, { attenuationDB = 0, laps
     }
     const appOrder = vm.runInContext("state.frequencies", context);
     const rawFor = key => frequencies.map(frequency => JSON.parse(stored.get(key))[appOrder.indexOf(frequency)]);
-    const trials = mode === "both"
-        ? JSON.parse(stored.get("bothResponses"))
+    const trials = mode === "right"
+        ? JSON.parse(stored.get("rightResponses"))
         : [...JSON.parse(stored.get("leftResponses")), ...JSON.parse(stored.get("rightResponses"))];
     // Raw staircase thresholds (last Yes level) in [R500..R4k, L500..L4k] order.
-    const rawStaircase = mode === "both"
-        ? [...rawFor("bothResults"), ...rawFor("bothResults")]
+    const rawStaircase = mode === "right"
+        ? [...rawFor("rightResults"), ...Array(4).fill(null)]
         : [...rawFor("rightResults"), ...rawFor("leftResults")];
     return { trials, rawStaircase };
 }
 
 function unpooledFit(trials, mode) {
     // Independent per-ear, per-frequency logistic ML control: no PCA, prior or exclusions.
-    // In both-ears mode one threshold per frequency is fitted and used for both ears.
+    // No independent left-ear estimate is possible in right-only mode.
     return ["right", "left"].flatMap(ear => frequencies.map(frequency => {
         const selected = trials.filter(trial =>
-            (mode === "both" || trial.ear === ear) && trial.frequency === frequency);
+            trial.ear === ear && trial.frequency === frequency);
+        if (mode === "right" && ear === "left") return null;
         let best = { threshold: 0, likelihood: -Infinity };
         for (let threshold = -20; threshold <= 100; threshold += 0.5) {
             const likelihood = selected.reduce((sum, trial) => {
@@ -127,10 +127,10 @@ function unpooledFit(trials, mode) {
 
 const average = values => values.reduce((sum, value) => sum + value, 0) / values.length;
 
-// Single-ear mode scores all eight thresholds; both-ears mode can only identify the better ear.
+// Each-ear mode scores all eight thresholds; right-only scores the tested right ear.
 function scoredValues(thresholds, mode) {
     if (mode === "single") return thresholds;
-    return frequencies.map((_, index) => Math.min(thresholds[index], thresholds[index + 4]));
+    return thresholds.slice(0, 4);
 }
 
 function metrics(estimated, truth, mode) {
@@ -225,7 +225,7 @@ const report = {
         ages, sexes, modes, repetitions, slopeDB, firstSeed: 20261010, mclSlope, mclKnee,
         profiles: profiles.map(profile => profile.name),
         scaledScoreSD: methods.scaledPrior.scoreSD,
-        note: "Executes the app staircase (playAudio.js) and fitPCAPsychometric. Errors are against the true (unattenuated) thresholds. The same random seeds are reused at every level of an experiment (common random numbers). Both-ears mode is scored on better-ear thresholds only. rawStaircase is the app's unmodelled last-Yes level; unpooledControl is a per-frequency logistic fit without PCA."
+        note: "Executes the app staircase (playAudio.js) and fitPCAPsychometric. Errors are against the true (unattenuated) thresholds. The same random seeds are reused at every level of an experiment (common random numbers). Right-only mode is scored on the tested right ear, not the inferred left ear. rawStaircase is the app's unmodelled last-Yes level; unpooledControl is a per-frequency logistic fit without PCA."
     },
     experiments: {}
 };

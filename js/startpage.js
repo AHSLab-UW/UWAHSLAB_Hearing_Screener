@@ -6,6 +6,6 @@ singleButton.addEventListener("click", ()=>{
 
 let bothButton = document.querySelector("#bothEars");
 bothButton.addEventListener("click", ()=> {
-    sessionStorage.setItem("testmode", "both");
+    sessionStorage.setItem("testmode", "right");
     window.location.href = "../pages/TestingPage.html";
 })

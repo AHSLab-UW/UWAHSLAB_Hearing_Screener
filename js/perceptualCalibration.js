@@ -4,8 +4,9 @@
 //   coupler:    the operator adjusts the device volume until a coupler/sound level meter reads
 //               80 dB SPL (gain offset 0).
 //   perceptual: a normal-hearing reference listener makes four "Medium" settings, alternating
-//               ascending and descending runs. The mean is assigned a provisional 80 dB SPL
-//               anchor and reused for all screenings in the sitting. See README for evidence
+//               ascending and descending runs. Diotic Medium is assigned 75 dB SPL per ear
+//               (80 dB monaural anchor minus 5 dB binaural gain) and reused for the sitting.
+//               See Schlittenlacher et al. (2014), doi:10.3758/s13414-014-0651-1, and README
 //               and uncertainty. Only summary results, not individual tracks, are retained.
 // Browsers cannot read or lock the device volume, so it must not be changed afterwards.
 // Transducer categories and their RETSPLs (dB SPL at 0 dB HL), used for dB HL -> dB SPL.
@@ -32,7 +33,10 @@ const DEFAULT_TRANSDUCER = "headphones";
 const TRANSDUCER_KEY = "transducerType";
 const CALIBRATION_FREQUENCY_HZ = 1000;
 const CALIBRATION_TARGET_DB_SPL = 80;
-const CALIBRATION_SCHEMA_VERSION = 2;
+const MEDIUM_MONAURAL_DB_SPL = 80;
+const MEDIUM_BINAURAL_SUMMATION_DB = 5;
+const MEDIUM_DIOTIC_DB_SPL = MEDIUM_MONAURAL_DB_SPL - MEDIUM_BINAURAL_SUMMATION_DB;
+const CALIBRATION_SCHEMA_VERSION = 3;
 // Device assumption without calibration (0.1 amplitude = 93.5 dB SPL); it sets the digital
 // level of the reference tone and leaves headroom for louder test tones.
 const LEGACY_REFERENCE_DB_SPL = 93.5;
@@ -81,7 +85,7 @@ function storedLevelCalibration(storage = defaultLocalStorage(), now = new Date(
         const record = JSON.parse(storage.getItem(LEVEL_CALIBRATION_KEY) || "null");
         if (!record || !["coupler", "perceptual"].includes(record.method)) return null;
         if (record.schemaVersion !== CALIBRATION_SCHEMA_VERSION ||
-            record.targetDbSPL !== CALIBRATION_TARGET_DB_SPL ||
+            record.targetDbSPL !== (record.method === "perceptual" ? MEDIUM_DIOTIC_DB_SPL : CALIBRATION_TARGET_DB_SPL) ||
             record.frequencyHz !== CALIBRATION_FREQUENCY_HZ ||
             !Number.isFinite(record.gainOffsetDB)) return null;
         if (!(Date.parse(record.expiresAt) > now.getTime())) return null;
@@ -118,10 +122,16 @@ function createPerceptualRecord(runs, now = new Date(), transducer = DEFAULT_TRA
     const range = Math.max(...settings) - Math.min(...settings);
     return {
         ...baseRecord("perceptual", now, transducer),
+        targetDbSPL: MEDIUM_DIOTIC_DB_SPL,
         loudnessLabel: "Medium",
+        presentation: "diotic",
+        monauralMediumDbSPL: MEDIUM_MONAURAL_DB_SPL,
+        binauralSummationDB: MEDIUM_BINAURAL_SUMMATION_DB,
         referenceListener: "normal-hearing",
         settingCount: settings.length,
-        gainOffsetDB: round(average),
+        meanSettingOffsetDB: round(average),
+        // The digital reference remains nominally 80 dB SPL, not the 75 dB diotic anchor.
+        gainOffsetDB: round(average + CALIBRATION_TARGET_DB_SPL - MEDIUM_DIOTIC_DB_SPL),
         settingSDDB: round(sd),
         ascendingMinusDescendingDB: round(byDirection("ascending") - byDirection("descending")),
         settingRangeDB: round(range),
@@ -133,7 +143,7 @@ function describeCalibration(record) {
     if (!record) return "not set (optional)";
     const time = new Date(record.completedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     if (record.method === "coupler") return `coupler, ${record.targetDbSPL} dB SPL (set ${time})`;
-    return `Medium assumed ${record.targetDbSPL} dB SPL${record.consistent ? "" : ", variable"} (set ${time})`;
+    return `diotic Medium assumed ${record.targetDbSPL} dB SPL per ear${record.consistent ? "" : ", variable"} (set ${time})`;
 }
 
 function initializeLevelCalibration({
@@ -287,7 +297,7 @@ function initializeLevelCalibration({
         const record = createPerceptualRecord(runs, now(), selectedTransducer(storage));
         storage?.setItem(LEVEL_CALIBRATION_KEY, JSON.stringify(record));
         finish(record.consistent
-            ? `Medium is assumed to be ${record.targetDbSPL} dB SPL. Calibration saved for ${CALIBRATION_VALID_HOURS} hours for all screenings with this setup. Do not change the device volume.`
+            ? `Diotic Medium is assumed to be ${record.targetDbSPL} dB SPL per ear (5 dB binaural correction). Calibration saved for ${CALIBRATION_VALID_HOURS} hours for all screenings with this setup. Do not change the device volume.`
             : `Saved, but your settings varied by ${record.settingRangeDB} dB. Consider repeating the calibration.`);
     });
 
@@ -310,7 +320,7 @@ function initializeLevelCalibration({
 
     status.textContent = refresh()
         ? "A calibration from this sitting is active. Keep the same device, headphones and volume."
-        : "No current 80 dB SPL calibration is set. Previous 75 dB SPL/MCL calibrations must be repeated. Choose a method above, or screen without calibration.";
+        : "No current calibration is set. Previous calibration versions must be repeated for the diotic Medium correction. Choose a method above, or screen without calibration.";
 
     return {
         // Called when the screening starts: stops any tone and freezes the calibration used.

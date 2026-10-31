@@ -20,11 +20,18 @@ function displayPCAResults(result) {
     const leftThresholds = recon.slice(6, 10);
     const rightPTA4 = average(rightThresholds);
     const leftPTA4 = average(leftThresholds);
+    const rightOnly = sessionStorage.getItem("testmode") === "right";
 
     document.getElementById("leftThreshold").textContent =
-        `Left Ear: ${Math.round(leftPTA4)}`;
+        `Left Ear${rightOnly ? " (inferred; not tested)" : ""}: ${Math.round(leftPTA4)}`;
     document.getElementById("rightThreshold").textContent =
         `Right Ear: ${Math.round(rightPTA4)}`;
+    document.getElementById("leftHeader").textContent = rightOnly
+        ? "Left Inferred Threshold (dB HL; not tested)" : "Left Estimated Threshold (dB HL)";
+    document.getElementById("rightHeader").textContent = "Right Estimated Threshold (dB HL)";
+    document.getElementById("earInferenceNotice").textContent = rightOnly
+        ? "Only the right ear was tested. Left-ear thresholds and Hearing Number are inferred from right-ear responses and population patterns in the NHANES PCA model, not from left-ear measurements. This cannot rule out an unnoticed left-ear hearing loss."
+        : "Both ears were tested separately; thresholds are estimated from each ear's responses using the PCA model.";
 
     resultFrequencies.forEach((frequency, index) => {
         document.getElementById(`valL${index}`).textContent =
@@ -52,8 +59,8 @@ function formatThreshold(value) {
 }
 
 function getAllTrials(testmode) {
-    if (testmode === "both") {
-        return JSON.parse(sessionStorage.getItem("bothResponses") || "[]");
+    if (testmode === "right") {
+        return JSON.parse(sessionStorage.getItem("rightResponses") || "[]");
     }
     return [
         ...JSON.parse(sessionStorage.getItem("leftResponses") || "[]"),
@@ -84,6 +91,12 @@ function levelCalibrationCSV() {
         csv += `Loudness label,${medium ? "Medium" : "MCL (legacy)"}\n`;
         if (medium) {
             csv += `Medium level assumed (dB SPL),${record.targetDbSPL}\n`;
+            if (record.presentation === "diotic") {
+                csv += "Presentation,Diotic; assumed SPL is per ear\n";
+                csv += `Monaural Medium anchor (dB SPL),${record.monauralMediumDbSPL}\n`;
+                csv += `Binaural loudness summation correction (dB),${record.binauralSummationDB}\n`;
+                csv += `Mean Medium setting offset (dB re digital reference),${record.meanSettingOffsetDB}\n`;
+            }
             csv += "Reference listener,Normal hearing; shared session calibration\n";
             csv += `Number of settings,${record.settingCount}\n`;
         }
@@ -136,13 +149,17 @@ function generateCSV() {
     csvContent += `Subjective Difficulty,${difficulty}\n`;
     csvContent += `Device Usage Likelihood,${device}\n`;
     csvContent += `Confidence Level,${confidence}\n\n`;
+    csvContent += `Test mode,${testmode === "right" ? "Right ear only; left ear inferred and not tested" : "Each ear tested separately"}\n`;
+    if (testmode === "right") {
+        csvContent += "Left ear basis,Inferred from right-ear responses and NHANES population patterns; not tested\n";
+    }
 
     if (fittedPCAResult) {
         const recon = fittedPCAResult.reconstructed[0];
         csvContent += "PCA + Psychometric Hearing Number (four-frequency average, dB HL)\n";
-        csvContent += `Left ear,${Math.round(average(recon.slice(6, 10)))}\n`;
+        csvContent += `Left ear${testmode === "right" ? " (inferred; not tested)" : ""},${Math.round(average(recon.slice(6, 10)))}\n`;
         csvContent += `Right ear,${Math.round(average(recon.slice(2, 6)))}\n\n`;
-        csvContent += "Frequency (Hz),PCA Left Threshold (dB HL),PCA Right Threshold (dB HL)\n";
+        csvContent += `Frequency (Hz),PCA Left ${testmode === "right" ? "Inferred Threshold (dB HL; not tested)" : "Estimated Threshold (dB HL)"},PCA Right Estimated Threshold (dB HL)\n`;
         resultFrequencies.forEach((frequency, index) => {
             csvContent += `${frequency},${formatThreshold(recon[index + 6])},${formatThreshold(recon[index + 2])}\n`;
         });

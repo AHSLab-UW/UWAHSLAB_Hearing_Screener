@@ -61,12 +61,7 @@ function probabilityYes(thresholds, trial, testMode, slopeDB = PSYCHOMETRIC_SLOP
     const rightProbability = stableSigmoid(
         (trial.levelHL - thresholds[indexes.right]) / slopeDB
     );
-    if (testMode === "both") {
-        const leftProbability = stableSigmoid(
-            (trial.levelHL - thresholds[indexes.left]) / slopeDB
-        );
-        return 1 - (1 - rightProbability) * (1 - leftProbability);
-    }
+    if (testMode === "right") return rightProbability;
     const thresholdIndex = trial.ear === "left" ? indexes.left : indexes.right;
     return stableSigmoid(
         (trial.levelHL - thresholds[thresholdIndex]) / slopeDB
@@ -74,6 +69,9 @@ function probabilityYes(thresholds, trial, testMode, slopeDB = PSYCHOMETRIC_SLOP
 }
 
 function validateTrials(trials, testMode) {
+    if (!["single", "right"].includes(testMode)) {
+        throw new Error("Unsupported test mode. Start a new screening with each ear tested separately or the right ear only.");
+    }
     if (!Array.isArray(trials) || trials.length === 0) {
         throw new Error("No trial-by-trial responses are available for PCA fitting.");
     }
@@ -86,7 +84,8 @@ function validateTrials(trials, testMode) {
             throw new Error(`Trial ${index + 1} has an invalid sound level.`);
         }
         thresholdIndexes(trial.frequency);
-        if (testMode !== "both" && !["left", "right"].includes(trial.ear)) {
+        if (!["left", "right"].includes(trial.ear) ||
+            (testMode === "right" && trial.ear !== "right")) {
             throw new Error(`Trial ${index + 1} has an invalid ear.`);
         }
         return { ...trial, levelHL: Number(trial.levelHL), response };
@@ -126,8 +125,7 @@ function compileTrials(trials, testMode) {
     return trials.map(trial => {
         const indexes = thresholdIndexes(trial.frequency);
         return {
-            first: testMode === "both" || trial.ear === "right" ? indexes.right : indexes.left,
-            second: testMode === "both" ? indexes.left : -1,
+            first: trial.ear === "right" ? indexes.right : indexes.left,
             levelHL: trial.levelHL,
             yes: trial.response === "yes"
         };
@@ -137,9 +135,7 @@ function compileTrials(trials, testMode) {
 function compiledProbabilityYes(grid, point, trial, slopeDB) {
     const offset = point * mean.length;
     const first = stableSigmoid((trial.levelHL - grid.thresholds[offset + trial.first]) / slopeDB);
-    if (trial.second < 0) return first;
-    const second = stableSigmoid((trial.levelHL - grid.thresholds[offset + trial.second]) / slopeDB);
-    return 1 - (1 - first) * (1 - second);
+    return first;
 }
 
 function gridLogPosterior(grid, compiledTrials, slopeDB) {
@@ -220,12 +216,12 @@ function runPCA() {
     if (!isEligibleAdultAge(age)) {
         throw new Error("This hearing screening tool requires an adult age in whole years, from 18 to 120.");
     }
-    if (!["single", "both"].includes(testMode)) {
+    if (!["single", "right"].includes(testMode)) {
         throw new Error(`Unsupported test mode: ${testMode}`);
     }
 
-    const storedTrials = testMode === "both"
-        ? JSON.parse(sessionStorage.getItem("bothResponses") || "[]")
+    const storedTrials = testMode === "right"
+        ? JSON.parse(sessionStorage.getItem("rightResponses") || "[]")
         : [
             ...JSON.parse(sessionStorage.getItem("leftResponses") || "[]"),
             ...JSON.parse(sessionStorage.getItem("rightResponses") || "[]")

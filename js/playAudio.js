@@ -17,25 +17,34 @@ const TONE_PULSE_GAP_SECONDS = 0.2;
 const TONE_PULSE_RAMP_SECONDS = 0.035;
 
 const state = {
-    testMode: sessionStorage.getItem("testmode"), //single or both
+    testMode: sessionStorage.getItem("testmode"), // single: each ear; right: right ear only
     freqIndex:0,
     frequencies: [1000, 2000, 4000, 500],
-    currentEar: "left", //-1 for left, 1 for right, 0 for both
+    currentEar: sessionStorage.getItem("testmode") === "right" ? "right" : "left",
     currentDBHL: 50,
     increment:10,
     prevResponse: true,
     isFirstAttempt: true,
-    results: { left: [], right: [], both: [] },
-    responses: {left: [], right: [], both: [] }
+    results: { left: [], right: [] },
+    responses: {left: [], right: [] }
 }
 
 const numbers = document.querySelector(".numbers");
 const enable = document.querySelector("#enableMessage");
+const testModeNotice = document.querySelector("#testModeNotice");
+if (testModeNotice) testModeNotice.textContent = state.testMode === "right"
+    ? "For efficiency, only your right ear will be tested. Your untested left-ear hearing will be inferred from right-ear responses and population patterns in the PCA model."
+    : "Each ear will be tested separately.";
 enable.addEventListener("click", async ()=>{
     if (!isEligibleAdultAge(Number(sessionStorage.getItem("userAge")))) {
         sessionStorage.removeItem("userAge");
         alert("This hearing screening tool is for adults aged 18 or older. Please enter an eligible age before starting.");
         window.location.href = "../pages/SurveyPage.html";
+        return;
+    }
+    if (!["single", "right"].includes(state.testMode)) {
+        alert("Please select whether you notice a difference between your ears before starting.");
+        window.location.href = "../pages/Startpage.html";
         return;
     }
     const calibration = window.levelCalibration ? window.levelCalibration.beginTest() : storedLevelCalibration();
@@ -134,10 +143,10 @@ function playTestTone(frequency, dbHL, whichEar, needVisual) {
 function promptUser(event) {
     const userSaidYes = (event.currentTarget.id === "yes");
     disableYesOrNo();
-    let earName = state.testMode === "both" ? "both" : state.currentEar;
+    let earName = state.currentEar;
     console.log(state.currentDBHL);
     const resultEntry = {
-        ear: earName,               // saves "left", "right", or "both"
+        ear: earName,
         frequency: state.frequencies[state.freqIndex],
         levelHL: state.currentDBHL, 
         response: userSaidYes ? "yes" : "no"
@@ -145,9 +154,7 @@ function promptUser(event) {
     if(state.isFirstAttempt){
         state.prevResponse = true;
     }
-    if(state.testMode=="both"){
-        state.responses.both.push(resultEntry);
-    }else if(state.currentEar == "left"){
+    if(state.currentEar == "left"){
         state.responses.left.push(resultEntry);
     }else {
         state.responses.right.push(resultEntry);
@@ -175,11 +182,7 @@ function promptUser(event) {
 
 function saveThresholdAndAdvance () {
     let storeWhich;
-    if(state.testMode == "both"){
-        storeWhich = "both";
-    } else {
-        storeWhich = state.currentEar;
-    }
+    storeWhich = state.currentEar;
     state.results[storeWhich].push(state.currentDBHL);
     
     state.freqIndex++;
@@ -190,7 +193,7 @@ function saveThresholdAndAdvance () {
     if (state.freqIndex < state.frequencies.length) {
         playTestTone(state.frequencies[state.freqIndex], state.currentDBHL, getPanValue(),true);
     } 
-    else if (state.currentEar === "left" && state.testMode != "both") {
+    else if (state.currentEar === "left" && state.testMode === "single") {
         state.currentEar = "right";
         state.freqIndex = 0;
         console.log("Switching to Right Ear");
@@ -204,46 +207,22 @@ function saveThresholdAndAdvance () {
 
 function finishTest() {
     window.ambientNoiseMonitor?.endTest();
-    if(state.testMode == "both"){
-        let sum = 0;
-        for(let i = 0 ; i < state.frequencies.length; i ++){
-            sum+= state.results["both"][i];
+    for (const ear of ["left", "right"]) {
+        const results = state.results[ear];
+        sessionStorage.setItem(`${ear}Results`, JSON.stringify(results));
+        sessionStorage.setItem(`${ear}Responses`, JSON.stringify(state.responses[ear]));
+        if (results.length) {
+            const threshold = results.reduce((sum, level) => sum + level, 0) / results.length;
+            sessionStorage.setItem(`${ear}Threshold`, String(Math.round(threshold * 100) / 100));
+        } else {
+            sessionStorage.removeItem(`${ear}Threshold`);
         }
-        const bothThreshold = Math.round((sum/4)*100)/100;
-        const bothResults = JSON.stringify(state.results["both"]);
-        const bothResponses = JSON.stringify(state.responses["both"]);
-        sessionStorage.setItem("bothResults", bothResults);
-        sessionStorage.setItem("bothThreshold", bothThreshold);
-        sessionStorage.setItem("bothResponses", bothResponses);
-    }else {
-        let leftSum = 0;
-        for(let i = 0 ; i < state.frequencies.length; i ++){
-            leftSum+= state.results["left"][i];
-        }
-        const leftThreshold = Math.round((leftSum/4)*100)/100;
-        const leftResults = JSON.stringify(state.results["left"]);
-        const leftResponses = JSON.stringify(state.responses["left"]);
-        sessionStorage.setItem("leftResults", leftResults);
-        sessionStorage.setItem("leftThreshold", leftThreshold);
-        sessionStorage.setItem("leftResponses", leftResponses)
-
-        let rightSum = 0;
-        for(let i = 0 ; i < state.frequencies.length; i ++){
-            rightSum+= state.results["right"][i];
-        }
-        const rightThreshold = Math.round((rightSum/state.frequencies.length)*100)/100;
-        const rightResults = JSON.stringify(state.results["right"]);
-        const rightResponses = JSON.stringify(state.responses["right"]);
-        sessionStorage.setItem("rightResults",  rightResults);
-        sessionStorage.setItem("rightThreshold", rightThreshold);
-        sessionStorage.setItem("rightResponses", rightResponses)
     }
     window.location.href = "../pages/resultsPage.html";
 }
 
 
 function getPanValue() {
-    if (state.testMode == "both") return 0;
     if (state.currentEar === "left") return -1;
     return 1;
 }

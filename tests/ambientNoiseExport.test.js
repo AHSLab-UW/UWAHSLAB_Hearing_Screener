@@ -6,8 +6,8 @@ const { test } = require("node:test");
 
 function exportContext(noise, calibration = null) {
     const stored = new Map([
-        ["testmode", "both"],
-        ["bothResponses", JSON.stringify([{ ear: "both", frequency: 1000, levelHL: 20, response: "yes" }])]
+        ["testmode", "right"],
+        ["rightResponses", JSON.stringify([{ ear: "right", frequency: 1000, levelHL: 20, response: "yes" }])]
     ]);
     if (noise) stored.set("ambientNoiseTestAverage", JSON.stringify(noise));
     if (calibration) stored.set("levelCalibrationUsed", JSON.stringify(calibration));
@@ -23,17 +23,22 @@ function exportContext(noise, calibration = null) {
 
 test("CSV reports Medium anchor and calibration summaries without individual tracks", () => {
         const record = {
-            schemaVersion: 2, method: "perceptual", loudnessLabel: "Medium",
-            referenceListener: "normal-hearing", frequencyHz: 1000, targetDbSPL: 80,
-            gainOffsetDB: -6, settingCount: 4, settingSDDB: 1.6, settingRangeDB: 4,
+            schemaVersion: 3, method: "perceptual", loudnessLabel: "Medium",
+            referenceListener: "normal-hearing", frequencyHz: 1000, targetDbSPL: 75,
+            presentation: "diotic", monauralMediumDbSPL: 80, binauralSummationDB: 5,
+            meanSettingOffsetDB: -6, gainOffsetDB: -1, settingCount: 4, settingSDDB: 1.6, settingRangeDB: 4,
             ascendingMinusDescendingDB: -2, consistent: true,
             completedAt: "2026-10-30T10:00:00Z", expiresAt: "2026-10-30T14:00:00Z"
         };
         const csv = exportContext(null, record).generateCSV();
         assert.match(csv, /Method,Perceptual Medium \(normal-hearing reference listener\)/);
         assert.match(csv, /Reference tone \(Hz\),1000/);
-        assert.match(csv, /Medium level assumed \(dB SPL\),80/);
-        assert.match(csv, /Digital gain offset \(dB\),-6/);
+        assert.match(csv, /Medium level assumed \(dB SPL\),75/);
+        assert.match(csv, /Presentation,Diotic; assumed SPL is per ear/);
+        assert.match(csv, /Monaural Medium anchor \(dB SPL\),80/);
+        assert.match(csv, /Binaural loudness summation correction \(dB\),5/);
+        assert.match(csv, /Mean Medium setting offset \(dB re digital reference\),-6/);
+        assert.match(csv, /Digital gain offset \(dB\),-1/);
         assert.match(csv, /Number of settings,4/);
         assert.match(csv, /Setting SD \(dB\),1\.6/);
         assert.match(csv, /Setting range \(dB\),4/);
@@ -72,7 +77,7 @@ test("CSV exports average band levels, coverage, and raw responses", () => {
     assert.match(csv, /4000,33\.0,59/);
     assert.match(csv, /Microphone processing uncertain,Yes/);
     assert.match(csv, /not calibrated SPL/);
-    assert.match(csv, /both,1000,20,yes/);
+    assert.match(csv, /right,1000,20,yes/);
 });
 
 test("CSV reports missing or unused monitoring explicitly without fabricated averages", () => {
@@ -80,6 +85,6 @@ test("CSV reports missing or unused monitoring explicitly without fabricated ave
         const csv = exportContext(noise).generateCSV();
         assert.match(csv, /Not available; no usable monitoring samples/);
         assert.doesNotMatch(csv, /NaN|Infinity/);
-        assert.match(csv, /both,1000,20,yes/);
+        assert.match(csv, /right,1000,20,yes/);
     }
 });

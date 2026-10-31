@@ -103,7 +103,7 @@ test("coupler calibration plays the reference tone and stores a zero-offset reco
     assert.equal(record.method, "coupler");
     assert.equal(record.gainOffsetDB, 0);
     assert.equal(record.targetDbSPL, 80);
-    assert.equal(record.schemaVersion, 2);
+    assert.equal(record.schemaVersion, 3);
     assert.match(elements.levelCalibrationStatus.textContent, /Coupler calibration saved/);
     assert.equal(Date.parse(record.expiresAt) - Date.parse(record.completedAt), 4 * 3600 * 1000);
     assert.match(elements.levelCalibrationLabel.textContent, /coupler/);
@@ -111,7 +111,7 @@ test("coupler calibration plays the reference tone and stores a zero-offset reco
 });
 
 test("perceptual calibration averages alternating Medium settings and retains only summaries", async () => {
-    const { elements, storage, click } = setup();
+    const { elements, storage, click, context } = setup();
     await click("mclStart");
     assert.match(elements.levelCalibrationStatus.textContent, /Normal-hearing reference listener/);
     assert.equal(elements.mclSofter.disabled, true);
@@ -130,7 +130,10 @@ test("perceptual calibration averages alternating Medium settings and retains on
     }
     const record = JSON.parse(storage.map.get("levelCalibration"));
     assert.equal(record.method, "perceptual");
-    assert.equal(record.targetDbSPL, 80);
+    assert.equal(record.targetDbSPL, 75);
+    assert.equal(record.presentation, "diotic");
+    assert.equal(record.monauralMediumDbSPL, 80);
+    assert.equal(record.binauralSummationDB, 5);
     assert.equal(record.loudnessLabel, "Medium");
     assert.equal(record.referenceListener, "normal-hearing");
     assert.equal(record.settingCount, 4);
@@ -138,16 +141,19 @@ test("perceptual calibration averages alternating Medium settings and retains on
     assert.equal(starts[0], -16);
     assert.ok(starts[1] > 0 && starts[2] < 0);
     assert.deepEqual(settings, starts.map((start, i) => start + (i % 2 ? -2 : 2) * presses[i][1]));
-    assert.equal(record.gainOffsetDB, settings.reduce((a, b) => a + b) / 4);
+    assert.equal(record.meanSettingOffsetDB, settings.reduce((a, b) => a + b) / 4);
+    assert.equal(record.gainOffsetDB, record.meanSettingOffsetDB + 5);
+    const selectedMediumAmplitude = 0.1 * 10 ** ((80 - 93.5 + record.meanSettingOffsetDB) / 20);
+    assert.ok(Math.abs(context.splToAmplitude(75, record.gainOffsetDB) / selectedMediumAmplitude - 1) < 1e-12);
     assert.equal(typeof record.ascendingMinusDescendingDB, "number");
     assert.equal(record.consistent, true);
-    assert.match(elements.levelCalibrationLabel.textContent, /Medium assumed 80 dB SPL/);
+    assert.match(elements.levelCalibrationLabel.textContent, /diotic Medium assumed 75 dB SPL per ear/);
     assert.match(elements.levelCalibrationStatus.textContent, /all screenings with this setup/);
     assert.equal(audio.tones[0].stopped, true);
     assert.ok(Math.abs(offsetOf()) > 50, "tone ramps to silence when finished");
     const laterScreening = setup({ storage, now: new Date("2026-10-10T11:00:00Z") });
     const reused = laterScreening.controller.beginTest();
-    assert.equal(reused.targetDbSPL, 80);
+    assert.equal(reused.targetDbSPL, 75);
     assert.equal(reused.gainOffsetDB, record.gainOffsetDB);
     assert.equal(reused.loudnessLabel, "Medium");
     assert.equal(Object.hasOwn(reused, "runs"), false);
@@ -180,7 +186,7 @@ test("stored calibrations are reused within the sitting and expire after 4 hours
     assert.equal(context.storedLevelCalibration(null), null);
 });
 
-test("old 75 dB SPL calibrations are not reused or relabeled as Medium", () => {
+test("previous calibrations are not reused under the diotic correction", () => {
     for (const method of ["coupler", "perceptual"]) {
         const storage = memoryStorage([["levelCalibration", JSON.stringify({
             method, frequencyHz: 1000, targetDbSPL: 75, gainOffsetDB: -8,
@@ -190,11 +196,18 @@ test("old 75 dB SPL calibrations are not reused or relabeled as Medium", () => {
         assert.equal(context.storedLevelCalibration(storage, new Date("2026-10-10T11:00:00Z")), null);
         assert.match(elements.levelCalibrationStatus.textContent, /must be repeated/);
     }
+    const storage = memoryStorage([["levelCalibration", JSON.stringify({
+        schemaVersion: 2, method: "perceptual", loudnessLabel: "Medium",
+        frequencyHz: 1000, targetDbSPL: 80, gainOffsetDB: -8,
+        completedAt: "2026-10-10T10:00:00Z", expiresAt: "2026-10-10T14:00:00Z"
+    })]]);
+    const { context } = setup({ storage });
+    assert.equal(context.storedLevelCalibration(storage, new Date("2026-10-10T11:00:00Z")), null);
 });
 
-function screeningContext(local) {
+function screeningContext(local, mode = "single") {
     const handlers = {};
-    const stored = new Map([["userAge", "45"], ["userSex", "female"], ["testmode", "single"]]);
+    const stored = new Map([["userAge", "45"], ["userSex", "female"], ["testmode", mode]]);
     const levels = [];
     const gainEvents = [];
     const context = vm.createContext({
@@ -223,7 +236,8 @@ function screeningContext(local) {
             createOscillator() { return { frequency: {}, connect() {}, start() {}, stop() {} }; }
             async resume() {}
         },
-        sessionStorage: { getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value) },
+        sessionStorage: { getItem: key => stored.get(key) ?? null,
+            setItem: (key, value) => stored.set(key, value), removeItem: key => stored.delete(key) },
         document: {
             querySelector: selector => ({ addEventListener: (type, handler) => { handlers[selector] = handler; }, style: {} }),
             querySelectorAll: () => []
@@ -234,6 +248,24 @@ function screeningContext(local) {
     return { context, handlers, stored, levels, gainEvents };
 }
 
+test("no-difference screening routes every trial to the right ear and finishes after four frequencies", async () => {
+        const { context, stored, handlers } = screeningContext(memoryStorage(), "right");
+        await handlers["#enableMessage"]();
+        assert.equal(context.getPanValue(), 1);
+        for (let frequency = 0; frequency < 4; frequency++) {
+            context.promptUser({ currentTarget: { id: "no" } });
+            context.promptUser({ currentTarget: { id: "yes" } });
+        }
+        assert.match(context.window.location.href, /resultsPage/);
+        const right = JSON.parse(stored.get("rightResponses"));
+        assert.equal(right.length, 8);
+        assert.ok(right.every(trial => trial.ear === "right"));
+        assert.equal(new Set(right.map(trial => trial.frequency)).size, 4);
+        assert.deepEqual(JSON.parse(stored.get("leftResponses")), []);
+        assert.deepEqual(JSON.parse(stored.get("leftResults")), []);
+        assert.equal(stored.has("leftThreshold"), false);
+        assert.equal(stored.has("bothResponses"), false);
+    });
 test("transducer switch selects RETSPLs and calibrations only apply to the transducer they were made with", async () => {
     const { elements, context, storage, click } = setup();
     assert.equal(context.selectedTransducer(storage), "headphones");
@@ -278,15 +310,15 @@ test("screening with earbuds selected uses the earbud RETSPLs", async () => {
 
 test("screening applies the stored calibration offset to test tones", async () => {
     const local = memoryStorage();
-    const record = { schemaVersion: 2, method: "perceptual", loudnessLabel: "Medium",
-        frequencyHz: 1000, targetDbSPL: 80, gainOffsetDB: -8,
+    const record = { schemaVersion: 3, method: "perceptual", loudnessLabel: "Medium",
+        frequencyHz: 1000, targetDbSPL: 75, gainOffsetDB: -3,
         completedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600e3).toISOString() };
     local.setItem("levelCalibration", JSON.stringify(record));
     const { context, handlers, stored, levels } = screeningContext(local);
     await handlers["#enableMessage"]();
-    assert.equal(JSON.parse(stored.get("levelCalibrationUsed")).gainOffsetDB, -8);
+    assert.equal(JSON.parse(stored.get("levelCalibrationUsed")).gainOffsetDB, -3);
     context.playTestTone(1000, 40, 0, false);
-    const expected = 0.1 * 10 ** ((40 + 1.4 - 93.5 - 8) / 20);
+    const expected = 0.1 * 10 ** ((40 + 1.4 - 93.5 - 3) / 20);
     assert.ok(Math.abs(Math.max(...levels) / expected - 1) < 1e-12);
 });
 

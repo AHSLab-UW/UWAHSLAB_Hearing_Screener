@@ -16,6 +16,7 @@
     </div>
     <hr />
     <h1 class="title">Can you hear the sound?</h1>
+    <p id="testModeNotice" role="status"></p>
     <div class="startButtonBox">
         <button id="enableMessage"> Start</button>
     </div>
@@ -65,7 +66,10 @@
                 Then make four on-screen settings: the tone starts either too soft or too loud, and you select
                 <strong>Louder</strong> or <strong>Softer</strong> until its loudness is <strong>Medium</strong>,
                 neither soft nor loud, then select <strong>Medium</strong>. This is a loudness judgment, not a
-                most-comfortable-level judgment. The mean setting is assumed to be <strong>80 dB SPL</strong>;
+                most-comfortable-level judgment. The same tone is presented to both ears (diotically).
+                The mean setting is assumed to be <strong>75 dB SPL per ear</strong>: the 80 dB SPL
+                monaural Medium anchor minus a provisional 5 dB binaural loudness-summation correction
+                (Schlittenlacher et al., 2014).
                 actual output can differ substantially between reference listeners. Use physical SPL calibration
                 when possible. The starting level changes each time, so do not count button presses.
                 Cancel if the tone is uncomfortable.</p>

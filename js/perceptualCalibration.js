@@ -3,11 +3,11 @@
 // nominally gives 80 dB SPL. Two opt-in methods tie that tone to an acoustic level:
 //   coupler:    the operator adjusts the device volume until a coupler/sound level meter reads
 //               80 dB SPL (gain offset 0).
-//   perceptual: a normal-hearing reference listener makes four "Medium" settings, alternating
-//               ascending and descending runs. Diotic Medium is assigned 75 dB SPL per ear
-//               (80 dB monaural anchor minus 5 dB binaural gain) and reused for the sitting.
-//               See Schlittenlacher et al. (2014), doi:10.3758/s13414-014-0651-1, and README
-//               and uncertainty. Only summary results, not individual tracks, are retained.
+//   perceptual: a normal-hearing reference listener makes four monaural "Medium" settings in the
+//               right ear, alternating ascending and descending runs. The mean is assigned a
+//               provisional 80 dB SPL anchor and reused for all screenings in the sitting.
+//               See README for evidence and uncertainty. Only summary results, not individual
+//               tracks, are retained.
 // Browsers cannot read or lock the device volume, so it must not be changed afterwards.
 // Transducer categories and their RETSPLs (dB SPL at 0 dB HL), used for dB HL -> dB SPL.
 const TRANSDUCERS = {
@@ -33,10 +33,9 @@ const DEFAULT_TRANSDUCER = "headphones";
 const TRANSDUCER_KEY = "transducerType";
 const CALIBRATION_FREQUENCY_HZ = 1000;
 const CALIBRATION_TARGET_DB_SPL = 80;
-const MEDIUM_MONAURAL_DB_SPL = 80;
-const MEDIUM_BINAURAL_SUMMATION_DB = 5;
-const MEDIUM_DIOTIC_DB_SPL = MEDIUM_MONAURAL_DB_SPL - MEDIUM_BINAURAL_SUMMATION_DB;
-const CALIBRATION_SCHEMA_VERSION = 3;
+const PERCEPTUAL_CALIBRATION_EAR = "right";
+const PERCEPTUAL_CALIBRATION_PAN = 1;
+const CALIBRATION_SCHEMA_VERSION = 4;
 // Device assumption without calibration (0.1 amplitude = 93.5 dB SPL); it sets the digital
 // level of the reference tone and leaves headroom for louder test tones.
 const LEGACY_REFERENCE_DB_SPL = 93.5;
@@ -85,9 +84,11 @@ function storedLevelCalibration(storage = defaultLocalStorage(), now = new Date(
         const record = JSON.parse(storage.getItem(LEVEL_CALIBRATION_KEY) || "null");
         if (!record || !["coupler", "perceptual"].includes(record.method)) return null;
         if (record.schemaVersion !== CALIBRATION_SCHEMA_VERSION ||
-            record.targetDbSPL !== (record.method === "perceptual" ? MEDIUM_DIOTIC_DB_SPL : CALIBRATION_TARGET_DB_SPL) ||
+            record.targetDbSPL !== CALIBRATION_TARGET_DB_SPL ||
             record.frequencyHz !== CALIBRATION_FREQUENCY_HZ ||
             !Number.isFinite(record.gainOffsetDB)) return null;
+        if (record.method === "perceptual" &&
+            (record.presentation !== "monaural" || record.ear !== PERCEPTUAL_CALIBRATION_EAR)) return null;
         if (!(Date.parse(record.expiresAt) > now.getTime())) return null;
         if ((record.transducer || DEFAULT_TRANSDUCER) !== transducer) return null;
         return record;
@@ -122,16 +123,12 @@ function createPerceptualRecord(runs, now = new Date(), transducer = DEFAULT_TRA
     const range = Math.max(...settings) - Math.min(...settings);
     return {
         ...baseRecord("perceptual", now, transducer),
-        targetDbSPL: MEDIUM_DIOTIC_DB_SPL,
         loudnessLabel: "Medium",
-        presentation: "diotic",
-        monauralMediumDbSPL: MEDIUM_MONAURAL_DB_SPL,
-        binauralSummationDB: MEDIUM_BINAURAL_SUMMATION_DB,
+        presentation: "monaural",
+        ear: PERCEPTUAL_CALIBRATION_EAR,
         referenceListener: "normal-hearing",
         settingCount: settings.length,
-        meanSettingOffsetDB: round(average),
-        // The digital reference remains nominally 80 dB SPL, not the 75 dB diotic anchor.
-        gainOffsetDB: round(average + CALIBRATION_TARGET_DB_SPL - MEDIUM_DIOTIC_DB_SPL),
+        gainOffsetDB: round(average),
         settingSDDB: round(sd),
         ascendingMinusDescendingDB: round(byDirection("ascending") - byDirection("descending")),
         settingRangeDB: round(range),
@@ -143,7 +140,7 @@ function describeCalibration(record) {
     if (!record) return "not set (optional)";
     const time = new Date(record.completedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     if (record.method === "coupler") return `coupler, ${record.targetDbSPL} dB SPL (set ${time})`;
-    return `diotic Medium assumed ${record.targetDbSPL} dB SPL per ear${record.consistent ? "" : ", variable"} (set ${time})`;
+    return `right-ear Medium assumed ${record.targetDbSPL} dB SPL${record.consistent ? "" : ", variable"} (set ${time})`;
 }
 
 function initializeLevelCalibration({
@@ -168,6 +165,7 @@ function initializeLevelCalibration({
     let audioContext = null;
     let oscillator = null;
     let gain = null;
+    let panner = null;
     let mode = "idle"; // idle | coupler | mclVolume | mclRun | locked
     let offsetDB = 0;
     let runs = [];
@@ -188,7 +186,7 @@ function initializeLevelCalibration({
         return record;
     }
 
-    async function startTone() {
+    async function startTone(panValue = 0) {
         audioContext ||= new AudioContextClass();
         await audioContext.resume();
         if (oscillator) return;
@@ -197,7 +195,14 @@ function initializeLevelCalibration({
         gain = audioContext.createGain();
         gain.gain.setValueAtTime(0, audioContext.currentTime);
         oscillator.connect(gain);
-        gain.connect(audioContext.destination);
+        if (typeof audioContext.createStereoPanner === "function") {
+            panner = audioContext.createStereoPanner();
+            panner.pan.setValueAtTime(panValue, audioContext.currentTime);
+            gain.connect(panner);
+            panner.connect(audioContext.destination);
+        } else {
+            gain.connect(audioContext.destination);
+        }
         oscillator.start();
         setToneLevel();
     }
@@ -212,6 +217,7 @@ function initializeLevelCalibration({
         oscillator.stop(audioContext.currentTime + 0.05);
         oscillator = null;
         gain = null;
+        panner = null;
     }
 
     function finish(message) {
@@ -234,7 +240,7 @@ function initializeLevelCalibration({
         offsetDB = Math.min(maximum, Math.max(minimum, Math.round(center / MEDIUM_STEP_DB) * MEDIUM_STEP_DB + (direction === "ascending" ? -distance : distance)));
         runs.push({ direction, startDB: offsetDB, settingDB: null });
         setToneLevel();
-        status.textContent = `Adjustment ${runs.length} of ${MEDIUM_RUN_DIRECTIONS.length}: the tone starts ` +
+        status.textContent = `Adjustment ${runs.length} of ${MEDIUM_RUN_DIRECTIONS.length}: the right-ear tone starts ` +
             `${direction === "ascending" ? "softer. Select Louder" : "louder. Select Softer"} until its loudness is Medium (neither soft nor loud), ` +
             "then select Medium. You may go past it and come back. Cancel if the tone is uncomfortable.";
     }
@@ -251,7 +257,7 @@ function initializeLevelCalibration({
         if (mode === "coupler") return finish("Coupler tone stopped. Calibration was not changed.");
         mode = "coupler";
         offsetDB = 0;
-        await startTone();
+        await startTone(0);
         buttons.couplerPlay.textContent = "Stop coupler tone";
         setEnabled(["couplerPlay", "couplerSave"]);
         status.textContent = `Adjust the device volume until the meter reads ${CALIBRATION_TARGET_DB_SPL} dB SPL, then select Save.`;
@@ -266,9 +272,9 @@ function initializeLevelCalibration({
         mode = "mclVolume";
         offsetDB = 0;
         runs = [];
-        await startTone();
+        await startTone(PERCEPTUAL_CALIBRATION_PAN);
         setEnabled(["mclVolumeSet", "mclCancel"]);
-        status.textContent = "Normal-hearing reference listener: set the device volume until the tone has roughly Medium loudness (neither soft nor loud), then select Volume is set.";
+        status.textContent = "Normal-hearing reference listener (right ear): set the device volume until the right-ear tone has roughly Medium loudness (neither soft nor loud), then select Volume is set.";
     }));
 
     buttons.mclVolumeSet.addEventListener("click", () => {
@@ -297,7 +303,7 @@ function initializeLevelCalibration({
         const record = createPerceptualRecord(runs, now(), selectedTransducer(storage));
         storage?.setItem(LEVEL_CALIBRATION_KEY, JSON.stringify(record));
         finish(record.consistent
-            ? `Diotic Medium is assumed to be ${record.targetDbSPL} dB SPL per ear (5 dB binaural correction). Calibration saved for ${CALIBRATION_VALID_HOURS} hours for all screenings with this setup. Do not change the device volume.`
+            ? `Right-ear Medium is assumed to be ${record.targetDbSPL} dB SPL. Calibration saved for ${CALIBRATION_VALID_HOURS} hours for all screenings with this setup. Do not change the device volume.`
             : `Saved, but your settings varied by ${record.settingRangeDB} dB. Consider repeating the calibration.`);
     });
 
@@ -320,7 +326,7 @@ function initializeLevelCalibration({
 
     status.textContent = refresh()
         ? "A calibration from this sitting is active. Keep the same device, headphones and volume."
-        : "No current calibration is set. Previous calibration versions must be repeated for the diotic Medium correction. Choose a method above, or screen without calibration.";
+        : "No current calibration is set. Previous calibration versions must be repeated. Choose a method above, or screen without calibration.";
 
     return {
         // Called when the screening starts: stops any tone and freezes the calibration used.

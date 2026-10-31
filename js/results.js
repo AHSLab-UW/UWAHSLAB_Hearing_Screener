@@ -30,8 +30,8 @@ function displayPCAResults(result) {
         ? "Left Inferred Threshold (dB HL; not tested)" : "Left Estimated Threshold (dB HL)";
     document.getElementById("rightHeader").textContent = "Right Estimated Threshold (dB HL)";
     document.getElementById("earInferenceNotice").textContent = rightOnly
-        ? "Only the right ear was tested. Left-ear thresholds and Hearing Number are inferred from right-ear responses and population patterns in the NHANES PCA model, not from left-ear measurements. This cannot rule out an unnoticed left-ear hearing loss."
-        : "Both ears were tested separately; thresholds are estimated from each ear's responses using the PCA model.";
+        ? "Only the right ear was tested. Left-ear thresholds and Hearing Number are inferred from your right-ear responses using a post hoc fit of a statistical model trained on U.S. population hearing data collected as part of the National Health and Nutrition Examination Survey (NHANES), rather than measured directly. This cannot rule out an unnoticed left-ear hearing loss."
+        : "Both ears were tested separately. Thresholds and Hearing Numbers are derived from a post hoc fit of a statistical model trained on U.S. population hearing data collected as part of the National Health and Nutrition Examination Survey (NHANES).";
 
     resultFrequencies.forEach((frequency, index) => {
         document.getElementById(`valL${index}`).textContent =
@@ -42,10 +42,10 @@ function displayPCAResults(result) {
 
     const excludedCount = result.excludedTrialCount;
     document.getElementById("pcaFitStatus").textContent = result.includedTrialCount === 0
-        ? `No responses passed LOOCV; thresholds reflect the age/sex-informed PCA prior only. ` +
+        ? `No responses passed the consistency check; thresholds reflect only the age- and sex-adjusted population statistical model trained on National Health and Nutrition Examination Survey (NHANES) data. ` +
           `All ${result.trialDiagnostics.length} responses were excluded.`
-        : `PCA + psychometric fit used ${result.includedTrialCount} of ${result.trialDiagnostics.length} trials; ` +
-          `${excludedCount} unlikely response${excludedCount === 1 ? " was" : "s were"} excluded by LOOCV.`;
+        : `Post hoc fit of the population statistical model (trained on National Health and Nutrition Examination Survey, NHANES, data) used ${result.includedTrialCount} of ${result.trialDiagnostics.length} responses; ` +
+          `${excludedCount} inconsistent response${excludedCount === 1 ? " was" : "s were"} excluded.`;
     sessionStorage.setItem("pcaLeftNum", String(Math.round(leftPTA4)));
     sessionStorage.setItem("pcaRightNum", String(Math.round(rightPTA4)));
 }
@@ -83,7 +83,7 @@ function levelCalibrationCSV() {
     }
     const medium = record.method === "perceptual" && record.loudnessLabel === "Medium";
     csv += `Method,${record.method === "coupler" ? "Coupler / sound level meter" :
-        medium ? "Perceptual Medium (normal-hearing reference listener)" : "Perceptual most comfortable level (MCL; legacy)"}\n`;
+        medium ? "Perceptual Medium (normal-hearing reference listener; right ear)" : "Perceptual most comfortable level (MCL; legacy)"}\n`;
     csv += `Reference tone (Hz),${record.frequencyHz}\n`;
     csv += `Reference tone level assumed (dB SPL),${record.targetDbSPL}\n`;
     csv += `Digital gain offset (dB),${record.gainOffsetDB}\n`;
@@ -91,12 +91,7 @@ function levelCalibrationCSV() {
         csv += `Loudness label,${medium ? "Medium" : "MCL (legacy)"}\n`;
         if (medium) {
             csv += `Medium level assumed (dB SPL),${record.targetDbSPL}\n`;
-            if (record.presentation === "diotic") {
-                csv += "Presentation,Diotic; assumed SPL is per ear\n";
-                csv += `Monaural Medium anchor (dB SPL),${record.monauralMediumDbSPL}\n`;
-                csv += `Binaural loudness summation correction (dB),${record.binauralSummationDB}\n`;
-                csv += `Mean Medium setting offset (dB re digital reference),${record.meanSettingOffsetDB}\n`;
-            }
+            csv += `Presentation,Monaural (${record.ear || "right"} ear)\n`;
             csv += "Reference listener,Normal hearing; shared session calibration\n";
             csv += `Number of settings,${record.settingCount}\n`;
         }

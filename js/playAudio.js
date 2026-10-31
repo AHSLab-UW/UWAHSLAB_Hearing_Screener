@@ -33,7 +33,7 @@ const numbers = document.querySelector(".numbers");
 const enable = document.querySelector("#enableMessage");
 const testModeNotice = document.querySelector("#testModeNotice");
 if (testModeNotice) testModeNotice.textContent = state.testMode === "right"
-    ? "For efficiency, only your right ear will be tested. Your untested left-ear hearing will be inferred from right-ear responses and population patterns in the PCA model."
+    ? "For efficiency, only your right ear will be tested, and your left-ear thresholds will be inferred."
     : "Each ear will be tested separately.";
 enable.addEventListener("click", async ()=>{
     if (!isEligibleAdultAge(Number(sessionStorage.getItem("userAge")))) {

@@ -71,7 +71,16 @@ test("right-only PCA ignores stale left/binaural logs and labels untested left-e
     assert.match(elements.leftThreshold.textContent, /inferred; not tested/);
     assert.match(elements.leftHeader.textContent, /Inferred Threshold.*not tested/);
     assert.match(elements.rightHeader.textContent, /Estimated Threshold/);
+    assert.match(elements.earInferenceNotice.textContent, /post hoc fit of a statistical model trained on U\.S\. population hearing data/);
     assert.match(elements.earInferenceNotice.textContent, /cannot rule out/);
+    assert.doesNotMatch(elements.earInferenceNotice.textContent, /\bPCA\b/);
+    assert.doesNotMatch(elements.pcaFitStatus.textContent, /\bPCA\b|\bLOOCV\b/);
+    const testingPage = fs.readFileSync(path.join(root, "pages", "TestingPage.html"), "utf8");
+    const startPage = fs.readFileSync(path.join(root, "pages", "Startpage.html"), "utf8");
+    const playAudio = source("playAudio.js");
+    assert.doesNotMatch(testingPage, /\bPCA\b|\bNHANES\b/);
+    assert.doesNotMatch(startPage, /\bPCA\b|\bNHANES\b/);
+    assert.doesNotMatch(playAudio, /\bPCA\b|\bNHANES\b/);
     const csv = context.generateCSV();
     assert.match(csv, /Right ear only; left ear inferred and not tested/);
     assert.match(csv, /Left ear \(inferred; not tested\)/);

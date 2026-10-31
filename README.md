@@ -82,7 +82,7 @@ setting. One normal-hearing reference listener can calibrate for everyone
 screened in that sitting; screened participants do not repeat calibration.
 A calibration applies only to the transducer it was made with:
 switching transducers requires a new one. **Clear calibration** removes it.
-Earlier calibration versions (including uncorrected 80 dB SPL Medium and
+Earlier calibration versions (including diotic perceptual calibrations and
 legacy MCL) are not reused and must be repeated.
 All test levels are relative to a
 1 kHz reference tone generated at the digital level that would be 80 dB SPL
@@ -97,18 +97,20 @@ code is in [`js/perceptualCalibration.js`](js/perceptualCalibration.js).
    reference-tone option, not the pulsed screening stimulus. Its actual
    SPL is unknown until measured. Accuracy also depends on the coupler,
    transducer fit, volume step size, and frequency response.
-2. **Perceptual (no meter).** A **normal-hearing reference listener** first
-   uses the device volume to give the continuous 1 kHz tone roughly
-   **Medium** loudness. They then make four on-screen
-   **Medium** settings with **Softer**/**Louder** (2 dB
-   steps). The runs alternate ascending (starting too soft) and descending
-   (starting too loud), with starting points randomized 12–20 dB from the
-   running estimate so that button presses cannot be counted. The mean
-   setting becomes a digital gain offset, and the app assumes that this level
-   is **75 dB SPL per ear for diotic presentation**: the provisional
-   monaural Medium anchor of 80 dB SPL minus a 5 dB binaural summation
-   correction (see below). "Medium" means neither soft nor loud; it is a
-   loudness-category judgment, **not most comfortable level (MCL)**.
+2. **Perceptual (no meter).** A **normal-hearing reference listener**
+   calibrates monaurally using the **right ear** (the continuous 1 kHz
+   tone is routed only to the right channel). They first use the device
+   volume to give the right-ear 1 kHz tone roughly **Medium** loudness.
+   They then make four on-screen **Medium** settings with **Softer**/**Louder**
+   (2 dB steps). The runs alternate ascending (starting too soft) and
+   descending (starting too loud), with starting points randomized 12–20 dB
+   from the running estimate so that button presses cannot be counted. The
+   mean setting becomes a digital gain offset, and the app assumes that this
+   monaural right-ear level is **80 dB SPL**. Presenting the calibration
+   tone monaurally to the right ear matches the monaural screening
+   presentation and the monaural 80 dB SPL anchor directly, avoiding
+   binaural loudness-summation assumptions. "Medium" means neither soft nor
+   loud; it is a loudness-category judgment, **not most comfortable level (MCL)**.
    Balanced approaches can reduce directional bias, and averaging can
    reduce random within-listener scatter; neither removes systematic
    differences between reference listeners. If the settings span more than 12 dB, the
@@ -122,9 +124,8 @@ assumption. When the screening starts, the calibration in effect is frozen
 for that test and the panel is locked. The CSV export reports the method,
 reference frequency, reference SPL, digital gain offset, completion and
 expiry times. For perceptual calibration it explicitly records **Medium**,
-the **assumed 75 dB SPL per ear**, diotic presentation, the 80 dB SPL
-monaural anchor, the 5 dB binaural correction, mean digital setting,
-the normal-hearing reference-listener basis,
+the **assumed 80 dB SPL**, monaural right-ear presentation, the
+normal-hearing reference-listener basis,
 setting count, SD, range, ascending-minus-descending difference, and
 consistency flag. Individual adjustment tracks and settings are not saved
 or exported; only summary results are retained. A test without calibration
@@ -141,29 +142,6 @@ supports **80 dB SPL as a rounded experimental anchor**, not an established
 clinical reference. The archive's condition-code-to-pure-tone mapping
 remains unconfirmed; transfer to this continuous-tone adjustment procedure
 requires physical validation. This is not a relabeling of MCL data.
-
-**Diotic binaural loudness correction.** The calibration oscillator feeds
-the same 1 kHz signal to both output channels. A diotic tone is generally
-louder than a monaural tone at the same per-ear SPL, so its per-ear
-equal-loudness level must be lower. Schlittenlacher, Ellermeier, and Arseneau
-([2014](#references)) measured responses to 1 kHz pure tones over
-45–85 dB SPL and found approximately **5 dB** between monaural and diotic
-levels producing equal reaction times. We use this as a **provisional
-level-equivalent binaural gain**, giving 80 − 5 = **75 dB SPL per ear**
-for diotic Medium. It is not a universal constant or a direct measurement
-of the Medium category: their outcome was reaction time, and their review
-reports considerable method-dependent variation. Direct 1 kHz loudness
-matching by Whilby et al. ([2006](#references)) also shows level dependence.
-The continuous-tone procedure and individual binaural gain require validation.
-
-The physical coupler option remains **80 dB SPL per ear**, measured
-separately on each side; no perceptual summation correction applies to
-the meter. The uncalibrated digital mapping and RETSPLs are unchanged.
-For perceptual calibration, if the average digital setting is s dB relative
-to the nominal 80 dB reference, the stored gain offset is
-s + (80 − 75) = **s + 5 dB**. This ensures that requesting 75 dB SPL
-reproduces the selected diotic Medium amplitude, rather than merely
-changing the label on an uncorrected 80 dB calibration.
 
 **Anticipated screening error, including accurate device calibration.**
 A shared-reference simulation used Neely's (2026) [Zenodo dataset](https://doi.org/10.5281/zenodo.23090549):
@@ -192,14 +170,6 @@ Four 2 dB adjustment tracks had randomized starts and assumed balanced
 ±3 dB directional biases. Each session's residual calibration error was
 applied while generating the screening responses, before the PCA fit.
 
-**The table below is the original monaural-reference simulation, not a
-new simulation of binaural summation.** Its 80 dB SPL monaural anchor
-corresponds to the app's 75 dB SPL per-ear diotic assumption only if
-the reference listener's actual binaural level advantage is exactly 5 dB.
-The table's 75 dB SPL row is a different monaural anchor choice, not
-the corrected current protocol. Variation or error in the assumed
-binaural advantage adds session uncertainty not quantified by these results.
-
 The seven fixed monaural anchors below were prespecified comparison options. The
 additional cross-validated normal-hearing mean anchor was estimated only
 from training listeners (77.6–79.2 dB SPL across folds). Metrics give equal
@@ -212,7 +182,7 @@ response seeds.
 | Medium assumed 70 dB SPL | −8.1 dB | 10.0 dB | −8.6 dB | 11.4 dB | 10.5 dB |
 | Medium assumed 75 dB SPL | −3.1 dB | 7.4 dB | −4.1 dB | 9.5 dB | 8.1 dB |
 | Medium assumed 78 dB SPL | −0.1 dB | 7.3 dB | −1.2 dB | 9.1 dB | 7.5 dB |
-| **Monaural Medium assumed 80 dB SPL (75 diotic if gain = 5 dB)** | **+1.9 dB** | **7.6 dB** | **+0.8 dB** | **9.3 dB** | **7.7 dB** |
+| **Medium assumed 80 dB SPL** | **+1.9 dB** | **7.6 dB** | **+0.8 dB** | **9.3 dB** | **7.7 dB** |
 | Medium assumed 82 dB SPL | +3.9 dB | 8.4 dB | +2.6 dB | 9.6 dB | 8.2 dB |
 | Medium assumed 85 dB SPL | +6.9 dB | 9.9 dB | +5.4 dB | 10.5 dB | 9.2 dB |
 | Medium assumed 90 dB SPL | +11.9 dB | 13.3 dB | +10.4 dB | 13.1 dB | 12.3 dB |
@@ -236,9 +206,8 @@ underestimated thresholds, while 85–90 dB SPL increasingly overestimated
 them. These comparisons support 80 dB SPL as a rounded provisional choice,
 not a uniquely optimal anchor or a clinically validated reference.
 
-For anchor A and reference Medium M expressed on the same presentation
-basis (monaural for the table; diotic per ear for the app), residual
-nominal-level error is A − M. Unknown common device gain cancels, but this
+For anchor A and the reference listener's measured monaural Medium level M,
+residual nominal-level error is A − M. Unknown common device gain cancels, but this
 reference-listener error is shared by everyone screened in the session.
 Its simulated SD was **9.7 dB**; at the 80 dB anchor, the 90th percentile
 absolute calibration error was **15.7 dB**. More screened participants do
@@ -384,17 +353,20 @@ model, the age and sex loadings are very small (about 0.014 score units per
 year), so the prior shifts by less than 1 dB HL across the adult age range.
 When a participant reports no difference between ears, only the **right ear**
 is tested for efficiency. The selection page and screening instructions
-explain that the left ear is not tested. Tones are routed to the right
-channel, and only right-ear trial likelihoods enter the PCA fit; there is
-no binaural detection probability or better-ear likelihood. The fixed
-NHANES PCA model reconstructs both ears, with left-ear values inferred
+state in plain language that only the right ear will be tested and that
+left-ear thresholds will be inferred for efficiency. Tones are routed to
+the right channel, and only right-ear trial likelihoods enter the PCA fit;
+there is no binaural detection probability or better-ear likelihood. The
+fixed NHANES PCA model reconstructs both ears, with left-ear values inferred
 from right-ear evidence and population covariance/prior patterns, not copied
-from the right ear or measured from left-ear responses. The results page
-and CSV explicitly label the left-ear thresholds and Hearing Number as
-**inferred; not tested**. Such inference cannot exclude unnoticed asymmetry.
-Participants reporting a difference still have each ear tested separately.
-The diotic loudness correction applies only to perceptual calibration,
-not to these monaural screening likelihoods.
+from the right ear or measured from left-ear responses. On the results page,
+participants are informed in lay language that the thresholds were derived
+from a post hoc fit of a statistical model trained on U.S. population
+hearing data collected as part of the National Health and Nutrition
+Examination Survey (NHANES), and the left-ear thresholds and Hearing Number
+are explicitly labeled as **inferred; not tested** (in both the UI and CSV).
+Such inference cannot exclude unnoticed asymmetry. Participants reporting a
+difference still have each ear tested separately.
 
 Before the final fit, leave-one-out cross-validation (LOOCV) predicts each
 trial from the other trials. If the probability of the observed response is
@@ -538,6 +510,4 @@ screening tool, not a medical device. It does not provide a diagnosis.
 - Masalski, M., Grysiński, T., & Kręcicki, T. (2018). Hearing tests based on biologically calibrated mobile devices: Comparison with pure-tone audiometry. *JMIR mHealth and uHealth*, *6*(1), e10. <https://doi.org/10.2196/mhealth.7800>
 - Neely, S. (2026). *Quick Tests of Consonant Confusion and Loudness Growth* [Data set]. Zenodo. <https://doi.org/10.5281/zenodo.23090549>
 - Punch, J., Joseph, A., & Rakerd, B. (2004). Most comfortable and uncomfortable loudness levels: Six decades of research. *American Journal of Audiology*, *13*(2), 144–157. <https://doi.org/10.1044/1059-0889(2004/019)>
-- Schlittenlacher, J., Ellermeier, W., & Arseneau, J. (2014). Binaural loudness gain measured by simple reaction time. *Attention, Perception, & Psychophysics*, *76*, 1465–1472. <https://doi.org/10.3758/s13414-014-0651-1>
 - Smull, C. C., Madsen, B., & Margolis, R. H. (2019). Evaluation of two circumaural earphones for audiometry. *Ear and Hearing*, *40*(1), 177–183. <https://doi.org/10.1097/AUD.0000000000000585>
-- Whilby, S., Florentine, M., Wagner, E., & Marozeau, J. (2006). Monaural and binaural loudness of 5- and 200-ms tones in normal and impaired hearing. *The Journal of the Acoustical Society of America*, *119*, 3931–3939. <https://doi.org/10.1121/1.2193813>

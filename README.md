@@ -14,6 +14,66 @@ hearing screening from a hearing care professional. Age must be entered in
 whole years (18 to 120). Eligibility is also checked before tone playback and
 model fitting. This age restriction alone does not establish WHO conformance.
 
+## Suitable applications and self-directed alternatives
+
+### Where this screener is especially suitable
+
+Among online hearing screeners, the UW AHSLAB Hearing Screener is designed for
+settings where **level calibration can be established once per sitting** and
+where **robustness to attentional lapses and full data transparency** matter:
+
+1. **Community screening kiosks, classrooms, clinics, and research studies.**
+   A single device and headphone set (such as Sennheiser HD 280 Pro or Apple
+   EarPods/AirPods) can be calibrated once with a coupler/sound level meter or
+   by a normal-hearing operator, then reused for all participants screened in
+   that sitting (up to 4 hours). Decoupling calibration from the screened
+   participant avoids the recruitment and comfort-level biases of
+   self-calibrated tests and preserves sensitivity to both flat and sloping
+   hearing losses.
+2. **Listeners prone to occasional lapses of attention.** Short adaptive
+   staircases are easily skewed by a single missed tone or false alarm. The
+   post hoc NHANES PCA + psychometric fit pools information across frequencies
+   and ears and uses leave-one-out cross-validation (LOOCV) to exclude
+   isolated inconsistent responses.
+3. **Privacy-preserving quantitative screening and research logging.** The
+   screener runs locally in the browser without accounts, sign-ups, or contact
+   information collection, and exports a complete CSV containing the
+   four-frequency Hearing Number, per-frequency thresholds, calibration and
+   ambient-noise metadata, and the raw trial-by-trial response log.
+
+### Options for solo, self-directed testing at home
+
+When an individual tests alone at home on uncalibrated consumer hardware
+without a sound level meter or a normal-hearing reference listener, a general
+web browser cannot verify absolute headphone output levels. For solo
+self-directed screening—restricting to tools that do **not** require account
+registration or contact information for telemarketing—several established
+options address the hardware-calibration problem in different ways:
+
+- **Apple Hearing Test Feature (iOS/iPadOS with AirPods Pro 2).** For users
+  who already own compatible Apple hardware, the built-in Hearing Test Feature
+  pairs known device electronics with factory-characterized AirPods Pro 2
+  transducers, ear-tip seal checks, and microphone ambient-noise monitoring to
+  measure pure-tone thresholds and report a four-frequency Hearing Number
+  (FDA De Novo `DEN230081`; Kruger, Manchaiah, & Swanepoel,
+  [2026](#references)).
+- **Hearing Number app (Johns Hopkins Bloomberg School of Public Health).**
+  If only a four-frequency Hearing Number (PTA4) is needed on a smartphone, the
+  free iOS and Android app from the Johns Hopkins Cochlear Center for Hearing
+  and Public Health (<https://hearingnumber.org/>, developed with Mimi Hearing
+  Technologies) provides guided ambient-noise checks, device-specific
+  headphone profiles, and PTA4 estimation without ads, fees, or mandatory
+  sign-up (Lin & Reed, [2021](#references)).
+- **SHOEBOX Online.** For browser-based categorical triage on arbitrary
+  consumer headphones (<https://www.shoeboxonline.com/shoebox/>), SHOEBOX
+  Online avoids absolute SPL calibration by combining a dynamic questionnaire
+  with a relative dynamic-range task (comparing comfortable speech levels to
+  barely audible warble-tone levels) and device/transducer compensation to
+  classify hearing into broad screening categories. Related SHOEBOX rapid
+  screening and remote audiometry technologies have been validated in clinical
+  populations (Frank, Goldlist, Mark Fraser, & Bromwich, [2021](#references);
+  Robertson et al., [2026](#references)).
+
 ## Run locally
 
 This is a static HTML, CSS, and JavaScript project; it has no build step or
@@ -449,8 +509,12 @@ screening tool, not a medical device. It does not provide a diagnosis.
 - Al-Salim, S. C., Kopun, J. G., Neely, S. T., Jesteadt, W., Stiegemann, B., & Gorga, M. P. (2010). Reliability of categorical loudness scaling and its relation to threshold. *Ear and Hearing*, *31*(4), 567–578. <https://doi.org/10.1097/AUD.0b013e3181da4d15>
 - American Speech-Language-Hearing Association. (1978). Guidelines for manual pure-tone audiometry. *Asha*, *20*, 279–301.
 - Burk, M. H., & Wiley, T. L. (2004). Continuous versus pulsed tones in audiometry. *American Journal of Audiology*, *13*(1), 54–61. <https://doi.org/10.1044/1059-0889(2004/008)>
+- Frank, A., Goldlist, S., Mark Fraser, A. E., & Bromwich, M. (2021). Validation of SHOEBOX QuickTest hearing loss screening tool in individuals with cognitive impairment. *Frontiers in Digital Health*, *3*, 724997. <https://doi.org/10.3389/fdgth.2021.724997>
 - Ho, C.-Y., Li, P.-C., & Young, S.-T. (2017). Reference equivalent threshold sound pressure levels for Apple EarPods. *The Journal of the Acoustical Society of America*, *141*(2), EL115–EL119. <https://doi.org/10.1121/1.4976110>
+- Kruger, M., Manchaiah, V., & Swanepoel, D. W. (2026). Apple Hearing Test Feature for the AirPods Pro 2: Accuracy, reliability, and time-efficiency. *Otolaryngology–Head and Neck Surgery*. <https://doi.org/10.1002/ohn.70194>
+- Lin, F. R., & Reed, N. S. (2021). The pure-tone average as a universal metric—knowing your hearing. *JAMA Otolaryngology–Head & Neck Surgery*, *147*(3), 230–231. <https://doi.org/10.1001/jamaoto.2020.4862>
 - Margolis, R. H., Saly, G. L., & Wilson, R. H. (2022). Ambient noise monitoring during pure-tone audiometry. *Journal of the American Academy of Audiology*, *33*(1), 45–56. <https://doi.org/10.1055/s-0041-1735803>
 - Neely, S. (2026). *Quick Tests of Consonant Confusion and Loudness Growth* [Data set]. Zenodo. <https://doi.org/10.5281/zenodo.23090549>
 - Punch, J., Joseph, A., & Rakerd, B. (2004). Most comfortable and uncomfortable loudness levels: Six decades of research. *American Journal of Audiology*, *13*(2), 144–157. <https://doi.org/10.1044/1059-0889(2004/019)>
+- Robertson, E. E., Acosta, R. J., Tzoneva, G., Redington, E. R., Wipperman, M. F., Rai, P., Majaj, R., Barge, R., Drummond, M. C., Shuldiner, A. R., & Urbanek, J. K. (2026). Validation of the Shoebox PureTest audiometry technology for remote data collection in clinical trials. *Scientific Reports*. <https://doi.org/10.1038/s41598-026-41200-5>
 - Smull, C. C., Madsen, B., & Margolis, R. H. (2019). Evaluation of two circumaural earphones for audiometry. *Ear and Hearing*, *40*(1), 177–183. <https://doi.org/10.1097/AUD.0000000000000585>
